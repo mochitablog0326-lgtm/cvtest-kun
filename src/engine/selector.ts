@@ -52,8 +52,35 @@ export const SELECTOR_SCRIPT = /* js */ `
       .trim();
   }
 
+  function isFormControl(node) {
+    if (!node || node.nodeType !== 1) return false;
+    return ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(node.tagName);
+  }
+
+  /** ボタンの名前は自身のテキスト。周囲のラベルを拾ってはいけない。 */
+  function buttonName(el) {
+    const tag = el.tagName.toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const isButton =
+      tag === 'button' ||
+      el.getAttribute('role') === 'button' ||
+      (tag === 'input' && ['submit', 'button', 'reset', 'image'].includes(type));
+    if (!isButton) return null;
+    return (
+      cleanLabel(textOf(el)) ||
+      cleanLabel(el.getAttribute('value') || '') ||
+      cleanLabel(el.getAttribute('aria-label') || '') ||
+      cleanLabel(el.getAttribute('alt') || '') ||
+      ''
+    );
+  }
+
   /** ラベル解決の探索順（設計 §5）。 */
   function resolveLabel(el) {
+    // 0. ボタン類は自身のテキストが名前
+    const asButton = buttonName(el);
+    if (asButton !== null) return asButton;
+
     // 1. label[for=id]
     if (el.id) {
       const forLabel = document.querySelector('label[for="' + cssEscape(el.id) + '"]');
@@ -114,10 +141,14 @@ export const SELECTOR_SCRIPT = /* js */ `
       }
     }
 
-    // 5. 直前の兄弟テキストノード
+    // 5. 直前の兄弟テキスト。
+    // 他の入力欄や <label> に行き当たったら、そこから先は別項目の領域なので打ち切る。
     let node = el.previousSibling;
     let guard = 0;
     while (node && guard++ < 5) {
+      if (isFormControl(node)) break;
+      if (node.nodeType === 1 && node.tagName === 'LABEL') break;
+      if (node.nodeType === 1 && node.querySelector('input, select, textarea, button')) break;
       const t = cleanLabel(textOf(node));
       if (t) return t;
       node = node.previousSibling;
