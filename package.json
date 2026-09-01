@@ -19,7 +19,7 @@
   ],
   "main": "./out/main/index.js",
   "bin": {
-    "cvtest": "./dist-cli/cli/index.js"
+    "cvtest": "./dist-cli/cli/bin.js"
   },
   "files": [
     "dist-cli",
