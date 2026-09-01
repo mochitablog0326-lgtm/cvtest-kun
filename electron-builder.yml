@@ -1,0 +1,58 @@
+appId: com.github.mochitablog0326.cvtestkun
+# .app のファイル名は英字にする。日本語名だとパス周りで事故りやすい（設計 §14）。
+# 表示名の日本語化は Info.plist の CFBundleDisplayName で行う。
+productName: CVTestKun
+copyright: Copyright © 2026 mochitablog0326-lgtm
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+  - '!**/{.DS_Store,.git,.github,tests,docs}'
+
+asar: true
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  icon: build/icon.icns
+  # 署名・公証はOSSでも必須。未署名だとCask経由でGatekeeperに弾かれる（設計 §14）
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    CFBundleDisplayName: CVテスト君
+    CFBundleName: CVTestKun
+    NSHumanReadableCopyright: Copyright © 2026 mochitablog0326-lgtm
+
+dmg:
+  artifactName: CVTestKun-${version}-${arch}.dmg
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  artifactName: CVTestKun-${version}-${arch}.exe
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: CVテスト君
+
+linux:
+  target: [AppImage]
+  category: Development
+  artifactName: CVTestKun-${version}-${arch}.AppImage
+
+publish:
+  provider: github
+  owner: mochitablog0326-lgtm
+  repo: cvtest-kun

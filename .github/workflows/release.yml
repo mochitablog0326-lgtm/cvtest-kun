@@ -1,0 +1,131 @@
+name: Release
+
+# git tag を打つとビルド・署名・公証してリリースする（設計 §14）
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: ブラウザを入れる（テストで実ブラウザを使う）
+        run: npx playwright install --with-deps chromium
+      - run: npm run typecheck
+      - run: npm test
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            command: dist:mac
+          - os: windows-latest
+            command: dist:win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: 署名証明書を入れる（macOS）
+        if: matrix.os == 'macos-latest' && env.CSC_LINK != ''
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERT_P12 }}
+        run: echo "証明書は electron-builder が CSC_LINK から読み込みます"
+
+      - name: ビルド・署名・公証
+        run: npm run ${{ matrix.command }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS: Apple Developer Program の証明書と公証情報
+          CSC_LINK: ${{ secrets.MAC_CERT_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows: コード署名証明書
+          WIN_CSC_LINK: ${{ secrets.WIN_CERT_PFX }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+
+      - name: 成果物をアップロード
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-dist
+          path: |
+            release/*.dmg
+            release/*.exe
+          if-no-files-found: warn
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: GitHub Releases に添付
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+
+  tap:
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Cask の version と sha256 を書き換えてPRを出す
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "TAP_TOKEN が未設定のため tap 更新をスキップします"
+            exit 0
+          fi
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARM_DMG=$(find artifacts -name "*arm64.dmg" | head -1)
+          X64_DMG=$(find artifacts -name "*x64.dmg" | head -1)
+          ARM_SHA=$(sha256sum "$ARM_DMG" | cut -d' ' -f1)
+          X64_SHA=$(sha256sum "$X64_DMG" | cut -d' ' -f1)
+
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/mochitablog0326-lgtm/homebrew-cvtest-kun.git" tap
+          cd tap
+
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" Casks/cvtest-kun.rb
+          sed -i "s/sha256 arm:   \".*\"/sha256 arm:   \"${ARM_SHA}\"/" Casks/cvtest-kun.rb
+          sed -i "s/         intel: \".*\"/         intel: \"${X64_SHA}\"/" Casks/cvtest-kun.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "release-${VERSION}"
+          git commit -am "cvtest-kun ${VERSION}"
+          git push origin "release-${VERSION}"
+
+          gh pr create --title "cvtest-kun ${VERSION}" \
+            --body "自動生成: v${VERSION} のリリースに合わせて version と sha256 を更新します。"
+        shell: bash

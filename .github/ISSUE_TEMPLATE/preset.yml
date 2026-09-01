@@ -1,0 +1,40 @@
+name: 媒体プリセットの追加
+description: テストCVの判定ルールが分かっている媒体を追加する
+title: '[preset] '
+labels: [preset]
+body:
+  - type: input
+    id: media
+    attributes:
+      label: 媒体名
+      placeholder: qualva
+    validations:
+      required: true
+  - type: textarea
+    id: rule
+    attributes:
+      label: テストCVと認識させる条件
+      description: 例）姓名入力欄のいずれかに「テスト」を含める / 専用のCV URLを経由する
+    validations:
+      required: true
+  - type: textarea
+    id: cleanup
+    attributes:
+      label: 事後処理
+      description: 自動削除されるか、管理画面で手動対応が要るか。手順も書いてください
+    validations:
+      required: true
+  - type: input
+    id: detect
+    attributes:
+      label: URLからの判定に使える文字列（分かれば）
+      placeholder: qualva.jp
+  - type: input
+    id: source
+    attributes:
+      label: 出典（公式ドキュメントのURLなど）
+  - type: textarea
+    id: notes
+    attributes:
+      label: 注意点
+      description: 「途中離脱するとダッシュボードの数値に影響する」など、運用上の落とし穴があれば

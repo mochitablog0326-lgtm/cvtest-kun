@@ -1,0 +1,36 @@
+name: 動作報告（フォームサービス）
+description: 動いた・動かなかったフォームサービスを報告する
+title: '[form] '
+labels: [form-report]
+body:
+  - type: input
+    id: service
+    attributes:
+      label: フォームサービス名
+      placeholder: formrun / HubSpot / Google Forms など
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: 結果
+      options:
+        - 問題なく動いた
+        - 一部動かなかった
+        - 全く動かなかった
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: 詳細
+      description: |
+        動かなかった場合は、どのステップで何が起きたかを書いてください。
+        `cvtest extract <URL>` の出力を貼ってもらえると助かります。
+    validations:
+      required: true
+  - type: textarea
+    id: html
+    attributes:
+      label: 該当箇所のHTML（差し支えなければ）
+      render: html

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: CAPTCHA回避について
+    url: https://github.com/mochitablog0326-lgtm/cvtest-kun#できないこと明記します
+    about: CAPTCHA / reCAPTCHA の回避機能は実装しません。理由はREADMEを参照してください。
