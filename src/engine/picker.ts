@@ -15,7 +15,7 @@ export const PICKER_SCRIPT = /* js */ `
   window.__cvtestPickerInstalled = true;
 
   const helpers = ${SELECTOR_SCRIPT};
-  const { buildSelector, resolveLabel, textOf } = helpers;
+  const { buildSelector, resolveLabel, textOf, associatedControl } = helpers;
 
   const STYLE_ID = '__cvtest_picker_style';
   const BOX_ID = '__cvtest_picker_box';
@@ -95,6 +95,14 @@ export const PICKER_SCRIPT = /* js */ `
    * 意図しているのは外側のセルなので、カレンダーセルらしい祖先があればそちらを採る。
    */
   function resolveTarget(el) {
+    /*
+     * ラベルや、その中の装飾用の要素を押したときは、対応する入力要素を対象にする。
+     * 実体の input が隠されている作りでは、押せるのは常にラベル側なので、
+     * 押された物をそのまま記録すると「不可視の要素を待つ」ステップになってしまう。
+     */
+    const control = associatedControl(el);
+    if (control) return control;
+
     if (looksLikeCalendarCell(el)) return el;
     let node = el.parentElement;
     let depth = 0;
@@ -169,6 +177,15 @@ export const PICKER_SCRIPT = /* js */ `
     }
   }
 
+  /** 状態変化を外へ知らせる。ESCでの解除をUIに反映するために要る。 */
+  function notifyState(active) {
+    try {
+      if (window.__cvtestPickerEvent) window.__cvtestPickerEvent({ active: active });
+    } catch (e) {
+      // 通知先が無くてもピッカー自体は動く
+    }
+  }
+
   window.__cvtestStopPicker = function () {
     document.removeEventListener('mousemove', onMove, true);
     document.removeEventListener('click', onClick, true);
@@ -176,6 +193,7 @@ export const PICKER_SCRIPT = /* js */ `
     clearHighlight();
     window.__cvtestPickerActive = false;
     setActiveFlag(false);
+    notifyState(false);
   };
 
   window.__cvtestStartPicker = function () {
@@ -185,6 +203,7 @@ export const PICKER_SCRIPT = /* js */ `
     document.addEventListener('keydown', onKey, true);
     window.__cvtestPickerActive = true;
     setActiveFlag(true);
+    notifyState(true);
   };
 
   /** ページ遷移後の自動復帰。stop 済みなら復帰しない。 */

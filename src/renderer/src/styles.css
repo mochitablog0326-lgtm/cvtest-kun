@@ -307,3 +307,28 @@ pre.log {
   border-radius: 8px;
   background: var(--bg);
 }
+
+/* 操作モード / 選択モード の切り替え */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmented button {
+  border: none;
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--muted);
+  padding: 6px 16px;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--border);
+}
+
+.segmented button.active {
+  background: var(--accent);
+  color: #fff;
+}

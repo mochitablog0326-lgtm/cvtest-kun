@@ -83,6 +83,8 @@ const api = {
   events: {
     onPickerSelected: (fn: (payload: PickedElement) => void) => on('picker:selected', fn),
     onBrowserNav: (fn: (payload: NavState) => void) => on('browser:nav', fn),
+    /** ページ側でピッカーが解除された（ESC等）ときにUIを同期する */
+    onPickerState: (fn: (active: boolean) => void) => on('picker:state', fn),
     onRunStep: (fn: (payload: StepResult) => void) => on('run:step', fn),
     onRunLog: (fn: (payload: string) => void) => on('run:log', fn),
     onRunFinished: (fn: (payload: RunResult) => void) => on('run:finished', fn)

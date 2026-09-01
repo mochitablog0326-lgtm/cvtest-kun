@@ -110,7 +110,8 @@ export function registerIpc(): void {
     embedded = new EmbeddedBrowser(
       win,
       (picked) => send('picker:selected', picked),
-      (navState) => send('browser:nav', navState)
+      (navState) => send('browser:nav', navState),
+      (active) => send('picker:state', active)
     )
     return embedded
   }
@@ -118,6 +119,10 @@ export function registerIpc(): void {
   // 対象ページ（信用できない）からのピック通知。検証は EmbeddedBrowser 側で行う
   ipcMain.on('cvtest:picked', (_event, payload: unknown) => {
     embedded?.handlePicked(payload)
+  })
+
+  ipcMain.on('cvtest:picker-state', (_event, payload: unknown) => {
+    embedded?.handlePickerState(payload)
   })
 
   handle('browser:open', (url: string) => browser().open(url))

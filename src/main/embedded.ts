@@ -30,7 +30,8 @@ export class EmbeddedBrowser {
   constructor(
     private readonly window: BrowserWindow,
     private readonly onPicked: (picked: PickedElement) => void,
-    private readonly onNavigate: (state: NavState) => void
+    private readonly onNavigate: (state: NavState) => void,
+    private readonly onPickerState: (active: boolean) => void
   ) {}
 
   private ensure(): WebContentsView {
@@ -90,6 +91,13 @@ export class EmbeddedBrowser {
     const parsed = pickedElementSchema.safeParse(raw)
     if (!parsed.success) return
     this.onPicked(parsed.data)
+  }
+
+  /** ページ側でピッカーが開始・解除されたとき（ESC を含む）。 */
+  handlePickerState(raw: unknown): void {
+    const active = Boolean((raw as { active?: unknown } | null)?.active)
+    this.pickerActive = active
+    this.onPickerState(active)
   }
 
   async open(url: string): Promise<string> {

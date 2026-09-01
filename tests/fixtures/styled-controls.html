@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>ご予約 | サンプル</title>
+  <style>
+    /*
+     * 実体の input を隠し、ラベル側を装飾する作り。
+     * 日本のLPフォームで非常によく使われる。
+     */
+    .choice input[type="radio"],
+    .choice input[type="checkbox"] {
+      display: none;
+    }
+    .choice label {
+      display: inline-block;
+      padding: 10px 18px;
+      border: 2px solid #ccc;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .choice input:checked + label { border-color: #2563eb; }
+
+    /* 日付を選ぶと現れる時間帯の選択肢 */
+    #time-slots { display: none; }
+    #time-slots.open { display: block; }
+  </style>
+</head>
+<body>
+  <h1>ご予約</h1>
+
+  <fieldset class="choice">
+    <legend>性別</legend>
+    <input type="radio" name="gender" id="gender-male" value="男性"><label for="gender-male">男性</label>
+    <input type="radio" name="gender" id="gender-female" value="女性"><label for="gender-female">女性</label>
+    <!-- id を持たず、祖先 label で包むパターン -->
+    <label class="wrap"><input type="radio" name="gender" value="回答しない">回答しない</label>
+  </fieldset>
+
+  <div class="choice">
+    <label class="wrap"><input type="checkbox" name="agree" value="1">個人情報の取扱いに同意する</label>
+  </div>
+
+  <h2>希望日</h2>
+  <table id="calendar"><tbody>
+    <tr>
+      <td class="day" data-date="2026-10-05"><a href="#" class="num">5</a><em>○</em></td>
+      <td class="day" data-date="2026-10-06"><a href="#" class="num">6</a><em>○</em></td>
+    </tr>
+  </tbody></table>
+
+  <!-- 日付をクリックすると開く。ピッカー中はクリックが止まるので開けない -->
+  <div id="time-slots">
+    <h3>時間帯</h3>
+    <div class="choice">
+      <label class="wrap"><input type="radio" name="slot" value="10:00">10:00</label>
+      <label class="wrap"><input type="radio" name="slot" value="14:00">14:00</label>
+    </div>
+  </div>
+
+  <!-- 本物のハニーポット（ラベルを持たない不可視の入力欄） -->
+  <input type="text" name="website" style="position:absolute;left:-9999px">
+  <div style="display:none"><input type="text" name="trap"></div>
+
+  <script>
+    document.querySelectorAll('#calendar td.day').forEach(function (cell) {
+      cell.addEventListener('click', function (e) {
+        e.preventDefault();
+        document.getElementById('time-slots').classList.add('open');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -18,15 +18,21 @@ export async function check(step: CheckStep, ctx: StepContext): Promise<StepDeta
     return { checked: step.checked, changed: false }
   }
 
-  try {
-    if (step.checked) {
-      await locator.check({ timeout: 5_000 })
-    } else {
-      await locator.uncheck({ timeout: 5_000 })
+  // 隠れている実 input に check() を投げると、タイムアウトまで待たされたうえで
+  // 必ず失敗する。先に可視かどうかを見て、隠れていればラベル操作へ直行する。
+  const visible = await locator.isVisible().catch(() => false)
+
+  if (visible) {
+    try {
+      if (step.checked) {
+        await locator.check({ timeout: 5_000 })
+      } else {
+        await locator.uncheck({ timeout: 5_000 })
+      }
+      return { checked: step.checked, changed: true, via: 'check' }
+    } catch {
+      // 可視でも別要素に覆われている場合がある。ラベル操作にフォールバックする
     }
-    return { checked: step.checked, changed: true, via: 'check' }
-  } catch {
-    // 実 input が隠れているカスタムUI向けのフォールバック
   }
 
   const clicked = await clickAssociatedLabel(step, ctx)

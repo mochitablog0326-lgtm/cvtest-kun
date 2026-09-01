@@ -36,6 +36,52 @@ export const SELECTOR_SCRIPT = /* js */ `
     }
   }
 
+  /** 要素が実際に見えているか。祖先の display:none 等も見る。 */
+  function isVisible(el) {
+    if (!el || el.nodeType !== 1) return false;
+    let node = el;
+    let depth = 0;
+    while (node && node.nodeType === 1 && depth++ < 20) {
+      const style = window.getComputedStyle(node);
+      if (style.display === 'none') return false;
+      if (style.visibility === 'hidden' || style.visibility === 'collapse') return false;
+      if (parseFloat(style.opacity) === 0) return false;
+      node = node.parentElement;
+    }
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  /** input に紐づくラベル要素（label[for] か祖先 label）。 */
+  function associatedLabel(el) {
+    if (el.id) {
+      const forLabel = document.querySelector('label[for="' + cssEscape(el.id) + '"]');
+      if (forLabel) return forLabel;
+    }
+    return el.closest('label');
+  }
+
+  /**
+   * ラベル（やその中の装飾要素）から、対応する入力要素を引く。
+   *
+   * 実体の input を display:none で隠してラベル側を装飾する作りが多く、
+   * ユーザーが押すのは常にラベル側。押された物ではなく操作対象を返す。
+   */
+  function associatedControl(el) {
+    const tag = el.tagName ? el.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return null;
+
+    const label = el.closest('label');
+    if (!label) return null;
+
+    const forId = label.getAttribute('for');
+    if (forId) {
+      const target = document.getElementById(forId);
+      if (target) return target;
+    }
+    return label.querySelector('input, select, textarea');
+  }
+
   function textOf(node) {
     return (node && node.textContent ? node.textContent : '')
       .replace(/[\\s\\u3000]+/g, ' ')
@@ -149,6 +195,11 @@ export const SELECTOR_SCRIPT = /* js */ `
       if (isFormControl(node)) break;
       if (node.nodeType === 1 && node.tagName === 'LABEL') break;
       if (node.nodeType === 1 && node.querySelector('input, select, textarea, button')) break;
+      // HTMLコメントは textContent を持つが、ラベルではない
+      if (node.nodeType === 8) {
+        node = node.previousSibling;
+        continue;
+      }
       const t = cleanLabel(textOf(node));
       if (t) return t;
       node = node.previousSibling;
@@ -254,7 +305,10 @@ export const SELECTOR_SCRIPT = /* js */ `
     return cssPath(el);
   }
 
-  return { buildSelector, resolveLabel, cssPath, isStableId, roleOf, cleanLabel, textOf };
+  return {
+    buildSelector, resolveLabel, cssPath, isStableId, roleOf, cleanLabel, textOf,
+    cssEscape, isVisible, associatedLabel, associatedControl
+  };
 })()
 `
 

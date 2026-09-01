@@ -87,6 +87,14 @@ export function Recorder({ onCreated }: Props): JSX.Element {
     return window.api.events.onBrowserNav((state) => setNav(state))
   }, [])
 
+  // ページ側で ESC を押されたときにモード表示を合わせる
+  useEffect(() => {
+    return window.api.events.onPickerState((active) => {
+      setPicking(active)
+      if (!active) setLearn(undefined)
+    })
+  }, [])
+
   useEffect(() => {
     const off = window.api.events.onPickerSelected((picked) => {
       const learning = learnRef.current
@@ -123,15 +131,21 @@ export function Recorder({ onCreated }: Props): JSX.Element {
     }
   }
 
-  const togglePicker = async (): Promise<void> => {
+  /**
+   * 操作モードと選択モードを切り替える。
+   *
+   * 選択モードはクリックを横取りするので、日付を押して現れる項目のような
+   * 「操作した結果を見たい」場面では操作モードに戻す必要がある。
+   */
+  const setMode = async (next: 'operate' | 'pick'): Promise<void> => {
     try {
-      if (picking) {
+      if (next === 'pick') {
+        await window.api.browser.startPicker()
+        setPicking(true)
+      } else {
         await window.api.browser.stopPicker()
         setPicking(false)
         setLearn(undefined)
-      } else {
-        await window.api.browser.startPicker()
-        setPicking(true)
       }
     } catch (err) {
       fail(err)
@@ -318,18 +332,38 @@ export function Recorder({ onCreated }: Props): JSX.Element {
         <div className="panel">
           <h2>3. 項目を選ぶ</h2>
           <div className="row">
-            <button onClick={() => void togglePicker()}>
-              {picking ? 'ピッカーを止める' : 'ピッカーを開始'}
-            </button>
+            <div className="segmented">
+              <button
+                className={!picking ? 'active' : ''}
+                onClick={() => void setMode('operate')}
+              >
+                操作モード
+              </button>
+              <button
+                className={picking ? 'active' : ''}
+                onClick={() => void setMode('pick')}
+              >
+                選択モード
+              </button>
+            </div>
             <button onClick={() => void extract()} disabled={busy}>
               項目を自動抽出
             </button>
-            <span className="muted grow">
-              {picking
-                ? 'ブラウザ上で要素をクリックしてください（ESCで解除）'
-                : 'ピッカー中のクリックは送信されません'}
-            </span>
           </div>
+
+          <p className="muted" style={{ margin: '10px 0 0' }}>
+            {picking ? (
+              <>
+                <strong>選択モード</strong>：クリックした要素がステップになります。
+                クリックはページに渡らないので送信は起きません。ESC で操作モードに戻ります。
+              </>
+            ) : (
+              <>
+                <strong>操作モード</strong>：ページを普通に操作できます。
+                日付を押して現れる項目など、先に画面を進めてから選択モードに切り替えてください。
+              </>
+            )}
+          </p>
 
           {learn && (
             <div className="banner warn" style={{ marginTop: 12 }}>

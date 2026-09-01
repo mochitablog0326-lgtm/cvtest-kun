@@ -6,7 +6,7 @@ import { SELECTOR_SCRIPT } from './selector'
 export const EXTRACT_SCRIPT = /* js */ `
 (() => {
   const helpers = ${SELECTOR_SCRIPT};
-  const { buildSelector, resolveLabel, roleOf, textOf, cleanLabel } = helpers;
+  const { buildSelector, resolveLabel, roleOf, textOf, cleanLabel, isVisible, associatedLabel } = helpers;
 
   /**
    * ハニーポット判定（設計 §11）。
@@ -15,6 +15,18 @@ export const EXTRACT_SCRIPT = /* js */ `
   function isHoneypot(el) {
     const type = (el.getAttribute('type') || '').toLowerCase();
     if (type === 'hidden') return true;
+
+    /*
+     * 装飾されたラジオ・チェックボックスの除外。
+     *
+     * 実体の input を display:none で隠し、ラベル側を装飾する作りは
+     * 日本のLPフォームで非常に多い。これを罠と誤判定すると、同意チェックの
+     * ような必須項目が抽出から丸ごと消えて、黙って入力されなくなる。
+     * 「見えるラベルが紐づいている」なら人間が操作できる項目である。
+     */
+    if ((type === 'radio' || type === 'checkbox') && isVisible(associatedLabel(el))) {
+      return false;
+    }
 
     // 祖先も含めて不可視かを見る
     let node = el;
