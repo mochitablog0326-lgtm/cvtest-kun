@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Scenario, Step, AvailableRule } from '../../../types/scenario'
 import type { ExtractResult, Field } from '../../../types/field'
 import type { PickedElement } from '../../../types/picker'
+import type { NavState } from '../../../types/browser'
 
 interface Props {
   onCreated: (scenario: Scenario) => void
@@ -37,9 +38,54 @@ export function Recorder({ onCreated }: Props): JSX.Element {
   const [fields, setFields] = useState<Field[]>([])
   const [pageInfo, setPageInfo] = useState<{ title: string; url: string; pageHeading?: string }>()
 
+  const [nav, setNav] = useState<NavState | undefined>()
+
   // 状態をイベントハンドラから参照するため ref に写す
   const learnRef = useRef<LearnState | undefined>(undefined)
   learnRef.current = learn
+
+  // 埋め込みビューを重ねる場所。ここの座標を main に渡してビューを位置合わせする
+  const slotRef = useRef<HTMLDivElement | null>(null)
+
+  const syncBounds = useCallback((): void => {
+    const el = slotRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    void window.api.browser.setBounds({
+      x: Math.round(rect.left),
+      y: Math.round(rect.top),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height)
+    })
+  }, [])
+
+  // ウィンドウのリサイズとスクロールに追従させる
+  useEffect(() => {
+    if (!opened) return undefined
+    syncBounds()
+    const handler = (): void => syncBounds()
+    window.addEventListener('resize', handler)
+    const main = document.querySelector('.main')
+    main?.addEventListener('scroll', handler)
+    const observer = new ResizeObserver(handler)
+    if (slotRef.current) observer.observe(slotRef.current)
+    return () => {
+      window.removeEventListener('resize', handler)
+      main?.removeEventListener('scroll', handler)
+      observer.disconnect()
+    }
+  }, [opened, syncBounds])
+
+  // 別の画面へ移ったらビューを隠す。UIの上に貼り付いたままにしない
+  useEffect(() => {
+    return () => {
+      void window.api.browser.setVisible(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    return window.api.events.onBrowserNav((state) => setNav(state))
+  }, [])
 
   useEffect(() => {
     const off = window.api.events.onPickerSelected((picked) => {
@@ -62,8 +108,13 @@ export function Recorder({ onCreated }: Props): JSX.Element {
   const open = async (): Promise<void> => {
     setBusy(true)
     try {
-      await window.api.browser.open(url)
       setOpened(true)
+      // 先に配置を合わせてから読み込む。読み込み中の白い矩形がずれないように
+      requestAnimationFrame(() => {
+        syncBounds()
+        void window.api.browser.setVisible(true)
+      })
+      await window.api.browser.open(url)
       setError('')
     } catch (err) {
       fail(err)
@@ -242,7 +293,30 @@ export function Recorder({ onCreated }: Props): JSX.Element {
 
       {opened && (
         <div className="panel">
-          <h2>2. 項目を選ぶ</h2>
+          <h2>2. ブラウザ</h2>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <button onClick={() => void window.api.browser.back()} title="戻る">
+              ←
+            </button>
+            <button onClick={() => void window.api.browser.forward()} title="進む">
+              →
+            </button>
+            <button onClick={() => void window.api.browser.reload()} title="再読込">
+              ↻
+            </button>
+            <span className="muted grow" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {nav?.loading ? '読み込み中… ' : ''}
+              {nav?.url ?? url}
+            </span>
+          </div>
+          {/* 埋め込みブラウザはこの矩形に重なる */}
+          <div ref={slotRef} className="browser-slot" />
+        </div>
+      )}
+
+      {opened && (
+        <div className="panel">
+          <h2>3. 項目を選ぶ</h2>
           <div className="row">
             <button onClick={() => void togglePicker()}>
               {picking ? 'ピッカーを止める' : 'ピッカーを開始'}
@@ -325,7 +399,7 @@ export function Recorder({ onCreated }: Props): JSX.Element {
 
       {steps.length > 0 && (
         <div className="panel">
-          <h2>3. ステップ（{steps.length}）</h2>
+          <h2>4. ステップ（{steps.length}）</h2>
           <table>
             <tbody>
               {steps.map((step, index) => (

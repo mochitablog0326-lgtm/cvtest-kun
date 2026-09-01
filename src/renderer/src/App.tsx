@@ -30,8 +30,11 @@ export function App(): JSX.Element {
 
   return (
     <div className="app">
+      {/* ウィンドウのドラッグ領域を兼ねる（hiddenInset でOSのバーが無いため） */}
+      <div className="titlebar">CVテスト君</div>
+
       <aside className="sidebar">
-        <h1>CVテスト君</h1>
+        <h1>メニュー</h1>
         {nav('list', 'シナリオ')}
         {nav('recorder', '録画・ピッカー')}
         {nav('editor', '編集', Boolean(scenario))}

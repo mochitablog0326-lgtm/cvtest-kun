@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
 /** main 側の handle() が返す形。 */
 import type { PickedElement } from '../types/picker'
+import type { NavState } from '../types/browser'
 import type { RunResult, StepResult } from '../types/result'
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string }
@@ -40,6 +41,13 @@ const api = {
     open: (url: string) => invoke('browser:open', url),
     close: () => invoke('browser:close'),
     screenshot: () => invoke('browser:screenshot'),
+    /** 埋め込みビューの表示位置。renderer 側のプレースホルダの座標を渡す */
+    setBounds: (bounds: { x: number; y: number; width: number; height: number }) =>
+      invoke('browser:setBounds', bounds),
+    setVisible: (visible: boolean) => invoke('browser:setVisible', visible),
+    back: () => invoke('browser:back'),
+    forward: () => invoke('browser:forward'),
+    reload: () => invoke('browser:reload'),
     startPicker: () => invoke('picker:start'),
     stopPicker: () => invoke('picker:stop'),
     learnRule: (available: unknown, full: unknown) =>
@@ -74,6 +82,7 @@ const api = {
   },
   events: {
     onPickerSelected: (fn: (payload: PickedElement) => void) => on('picker:selected', fn),
+    onBrowserNav: (fn: (payload: NavState) => void) => on('browser:nav', fn),
     onRunStep: (fn: (payload: StepResult) => void) => on('run:step', fn),
     onRunLog: (fn: (payload: string) => void) => on('run:log', fn),
     onRunFinished: (fn: (payload: RunResult) => void) => on('run:finished', fn)

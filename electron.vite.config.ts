@@ -18,7 +18,11 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        input: { index: resolve('src/preload/index.ts') }
+        input: {
+          index: resolve('src/preload/index.ts'),
+          // 埋め込みブラウザで開く対象ページ用（最小限だけ公開する）
+          page: resolve('src/preload/page.ts')
+        }
       }
     }
   },

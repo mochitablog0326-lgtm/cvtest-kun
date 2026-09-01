@@ -3,7 +3,7 @@ import type { ExtractResult, Field } from '../types/field'
 import { SELECTOR_SCRIPT } from './selector'
 
 /** ページ内で走る抽出スクリプト本体。戻り値は selector 付きの生データ。 */
-const EXTRACT_SCRIPT = /* js */ `
+export const EXTRACT_SCRIPT = /* js */ `
 (() => {
   const helpers = ${SELECTOR_SCRIPT};
   const { buildSelector, resolveLabel, roleOf, textOf, cleanLabel } = helpers;
@@ -192,7 +192,7 @@ const EXTRACT_SCRIPT = /* js */ `
 })()
 `
 
-interface RawExtract {
+export interface RawExtract {
   title: string
   pageHeading?: string
   fields: Omit<Field, 'frame'>[]
@@ -254,7 +254,7 @@ export async function extractFields(page: Page): Promise<ExtractResult> {
 }
 
 /** ref を f1.. / b1.. で通し番号に振り直す（フレーム横断で一意にする）。 */
-function renumber(result: ExtractResult): ExtractResult {
+export function renumber(result: ExtractResult): ExtractResult {
   let fieldIndex = 0
   let buttonIndex = 0
   const fields = result.fields.map((f) =>

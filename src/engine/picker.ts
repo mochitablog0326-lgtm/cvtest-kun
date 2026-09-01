@@ -9,7 +9,7 @@ import { SELECTOR_SCRIPT } from './selector'
 const PICKER_BINDING = '__cvtestPick'
 
 /** ページに注入するオーバーレイ。ホバーでハイライト、クリックで確定、ESCで解除。 */
-const PICKER_SCRIPT = /* js */ `
+export const PICKER_SCRIPT = /* js */ `
 (() => {
   if (window.__cvtestPickerInstalled) return;
   window.__cvtestPickerInstalled = true;

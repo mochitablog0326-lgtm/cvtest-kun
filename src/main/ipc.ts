@@ -2,9 +2,9 @@ import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import type { Scenario } from '../types/scenario'
 import type { Field } from '../types/field'
-import { launch, type Session } from '../engine/browser'
-import { extractFields } from '../engine/extract'
-import { startPicker, stopPicker, buildAvailableRule, type PickedElement } from '../engine/picker'
+import { buildAvailableRule } from '../engine/picker'
+import { EmbeddedBrowser, type Bounds } from './embedded'
+import type { PickedElement } from '../types/picker'
 import { run } from '../engine/runner'
 import { buildSteps } from '../engine/buildSteps'
 import {
@@ -24,18 +24,10 @@ import {
 import { Store } from './store'
 import { SecretStore } from './secrets'
 
-/** ブラウザセッションと実行状態を1つに束ねる。 */
+/** 実行状態をまとめる。録画用ブラウザは EmbeddedBrowser 側が持つ。 */
 class AppState {
-  session: Session | undefined
   aborting = false
   running = false
-  /** ピッカーで選ばれた最後の要素。空き判定の学習に使う */
-  lastPicks: PickedElement[] = []
-
-  async closeSession(): Promise<void> {
-    await this.session?.close()
-    this.session = undefined
-  }
 }
 
 function send(channel: string, payload: unknown): void {
@@ -104,48 +96,53 @@ export function registerIpc(): void {
     return result.filePaths[0]
   })
 
-  // --- browser ---
-  handle('browser:open', async (url: string) => {
-    const config = await store.loadConfig()
-    if (!state.session) {
-      state.session = await launch({
-        headless: false,
-        channel: config.browserChannel
-      })
-      state.session.page.on('close', () => {
-        state.session = undefined
-      })
-    }
-    await state.session.page.goto(url, { waitUntil: 'domcontentloaded' })
-    return state.session.page.url()
+  // --- browser（アプリ内に埋め込んだビュー） ---
+  //
+  // 録画・ピッカー・項目抽出はこの埋め込みビューで行う。
+  // 実行だけは Playwright のまま（設計 §2 の理由は変わっていない）。
+  let embedded: EmbeddedBrowser | undefined
+
+  const browser = (): EmbeddedBrowser => {
+    if (embedded) return embedded
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) throw new Error('ウィンドウがありません')
+
+    embedded = new EmbeddedBrowser(
+      win,
+      (picked) => send('picker:selected', picked),
+      (navState) => send('browser:nav', navState)
+    )
+    return embedded
+  }
+
+  // 対象ページ（信用できない）からのピック通知。検証は EmbeddedBrowser 側で行う
+  ipcMain.on('cvtest:picked', (_event, payload: unknown) => {
+    embedded?.handlePicked(payload)
   })
 
-  handle('browser:close', async () => {
-    await state.closeSession()
+  handle('browser:open', (url: string) => browser().open(url))
+  handle('browser:setBounds', (bounds: Bounds) => {
+    browser().setBounds(bounds)
     return true
   })
+  handle('browser:setVisible', (visible: boolean) => {
+    if (embedded) embedded.setVisible(visible)
+    return true
+  })
+  handle('browser:back', () => browser().goBack().then(() => true))
+  handle('browser:forward', () => browser().goForward().then(() => true))
+  handle('browser:reload', () => browser().reload().then(() => true))
+  handle('browser:screenshot', () => browser().screenshot())
 
-  handle('browser:screenshot', async () => {
-    if (!state.session) throw new Error('ブラウザが開かれていません')
-    const buffer = await state.session.page.screenshot({ type: 'png' })
-    return `data:image/png;base64,${buffer.toString('base64')}`
+  handle('browser:close', () => {
+    embedded?.destroy()
+    embedded = undefined
+    return true
   })
 
   // --- picker ---
-  handle('picker:start', async () => {
-    if (!state.session) throw new Error('ブラウザが開かれていません')
-    state.lastPicks = []
-    await startPicker(state.session.page, (picked) => {
-      state.lastPicks.push(picked)
-      send('picker:selected', picked)
-    })
-    return true
-  })
-
-  handle('picker:stop', async () => {
-    if (state.session) await stopPicker(state.session.page)
-    return true
-  })
+  handle('picker:start', () => browser().startPicker().then(() => true))
+  handle('picker:stop', () => browser().stopPicker().then(() => true))
 
   /** 空き枠と満席枠の2要素からルールを学習する（設計 §7）。 */
   handle('picker:learnRule', (available: PickedElement, full: PickedElement) =>
@@ -153,10 +150,7 @@ export function registerIpc(): void {
   )
 
   // --- extract ---
-  handle('extract:fields', async () => {
-    if (!state.session) throw new Error('ブラウザが開かれていません')
-    return extractFields(state.session.page)
-  })
+  handle('extract:fields', () => browser().extractFields())
 
   // --- ai ---
   handle('ai:listProviders', async () => listProviders(await providerSettings()))
