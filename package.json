@@ -1,0 +1,68 @@
+{
+  "name": "cvtest-kun",
+  "version": "0.1.0",
+  "description": "An automated CV (conversion) form testing tool for Japanese websites",
+  "author": "mochitablog0326-lgtm",
+  "license": "MIT",
+  "homepage": "https://github.com/mochitablog0326-lgtm/cvtest-kun",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mochitablog0326-lgtm/cvtest-kun.git"
+  },
+  "keywords": [
+    "form",
+    "testing",
+    "playwright",
+    "electron",
+    "conversion",
+    "cv"
+  ],
+  "main": "./out/main/index.js",
+  "bin": {
+    "cvtest": "./dist-cli/cli/index.js"
+  },
+  "files": [
+    "dist-cli",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
+    "build:cli": "tsc -p tsconfig.cli.json",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .ts,.tsx",
+    "start": "electron-vite preview",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.13",
+    "playwright-core": "^1.49.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "esbuild@0.21.5": true,
+    "fsevents@2.3.3": true
+  }
+}

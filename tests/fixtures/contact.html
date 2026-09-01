@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><title>お問い合わせ | サンプル株式会社</title></head>
+<body>
+  <h1>お問い合わせフォーム</h1>
+  <form id="contact-form" action="/confirm" method="post">
+    <table>
+      <tr>
+        <th>会社名<span class="badge">必須</span></th>
+        <td><input type="text" name="company" id="company"></td>
+      </tr>
+      <tr>
+        <th>お名前<span class="badge">必須</span></th>
+        <td><input type="text" name="name" id="name"></td>
+      </tr>
+    </table>
+
+    <label for="email">メールアドレス</label>
+    <input type="email" name="email" id="email" required>
+
+    <label>電話番号
+      <input type="tel" name="tel" pattern="[0-9-]+">
+    </label>
+
+    <label for="subject">ご相談内容</label>
+    <select name="subject" id="subject">
+      <option value="">選択してください</option>
+      <option value="price">料金について</option>
+      <option value="intro">導入相談</option>
+      <option value="other">その他</option>
+    </select>
+
+    <label for="body">詳細</label>
+    <textarea name="body" id="body" maxlength="1000"></textarea>
+
+    <fieldset>
+      <legend>ご連絡方法</legend>
+      <label><input type="radio" name="contact_method" value="mail">メール</label>
+      <label><input type="radio" name="contact_method" value="phone">電話</label>
+    </fieldset>
+
+    <label><input type="checkbox" name="agree" required>個人情報の取扱いに同意する</label>
+
+    <!-- ハニーポット各種 -->
+    <input type="hidden" name="csrf_token" value="xyz">
+    <div style="display:none"><input type="text" name="website"></div>
+    <input type="text" name="hp_field" style="position:absolute;left:-9999px">
+    <input type="text" name="zerosize" style="width:0;height:0;border:0;padding:0">
+
+    <!-- 自動生成っぽい id は使わないこと -->
+    <label for="css-1a2b3c4d">補足</label>
+    <input type="text" id="css-1a2b3c4d" name="note">
+
+    <button type="submit">確認画面へ</button>
+  </form>
+</body>
+</html>
