@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><title>送信完了 | サンプル株式会社</title></head>
+<body>
+  <h1>送信完了</h1>
+  <p id="message">お問い合わせありがとうございました。</p>
+  <script>
+    // 計測タグ発火の代役。実在ドメインへは出ていかない（テストサーバ内で完結）。
+    // ブラウザキャッシュで2回目が握り潰されないよう no-store で投げる。
+    function firePixel(path) {
+      fetch(path, { cache: 'no-store' });
+    }
+    firePixel('/google-analytics.com/g/collect?v=2&en=generate_lead');
+    // GTM のトリガー誤設定を再現: 同じCVイベントが2回飛ぶ
+    firePixel('/google-analytics.com/g/collect?v=2&en=page_view');
+    firePixel('/google-analytics.com/g/collect?v=2&en=page_view');
+  </script>
+</body>
+</html>

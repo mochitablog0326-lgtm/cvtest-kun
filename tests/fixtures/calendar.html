@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>ご予約 | サンプルクリニック</title>
+  <style>
+    td.day { width: 40px; height: 40px; text-align: center; }
+    td.full { color: #999; }
+  </style>
+</head>
+<body>
+  <h1>ご予約</h1>
+
+  <!-- data-date を持つ一般的なカレンダー -->
+  <div id="calendar">
+    <div class="cal-header">
+      <button id="prev" type="button">前月</button>
+      <span class="month-label"></span>
+      <button id="next" type="button">翌月</button>
+    </div>
+    <table class="grid"><tbody id="cells"></tbody></table>
+  </div>
+
+  <!-- 日付属性を持たず、テキストだけのカレンダー -->
+  <div id="calendar-text">
+    <div class="cal-header"><span class="month-label"></span></div>
+    <table class="grid"><tbody id="cells-text"></tbody></table>
+  </div>
+
+  <p id="selected">未選択</p>
+
+  <script>
+    // 当月は全て満席、翌月以降は空きが出る。翌月ボタンの動作を検証するため。
+    var today = new Date();
+    var baseYear = today.getFullYear();
+    var baseMonth = today.getMonth(); // 0-indexed
+    var offset = 0;
+
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function symbolFor(monthOffset, day) {
+      if (monthOffset === 0) return '×';        // 当月は満席
+      if (day % 7 === 0) return '×';
+      if (day % 5 === 0) return '△';            // 残りわずか（空き扱い）
+      return '○';
+    }
+
+    function render() {
+      var year = baseYear;
+      var month = baseMonth + offset;
+      var d = new Date(year, month, 1);
+      year = d.getFullYear();
+      month = d.getMonth();
+      var daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      var label = year + '年' + (month + 1) + '月';
+      document.querySelector('#calendar .month-label').textContent = label;
+      document.querySelector('#calendar-text .month-label').textContent = label;
+
+      var rows = '';
+      var rowsText = '';
+      for (var day = 1; day <= daysInMonth; day++) {
+        var sym = symbolFor(offset, day);
+        var iso = year + '-' + pad(month + 1) + '-' + pad(day);
+        var full = sym === '×';
+        var cls = 'day ' + (full ? 'full' : 'available');
+        var disabled = full ? ' aria-disabled="true"' : '';
+        var inner = full
+          ? '<span class="num">' + day + '</span><em class="sym">' + sym + '</em>'
+          : '<a href="#" class="num">' + day + '</a><em class="sym">' + sym + '</em>';
+
+        rows += '<tr><td class="' + cls + '" data-date="' + iso + '"' + disabled +
+                ' aria-label="' + label + day + '日 ' + sym + '">' + inner + '</td></tr>';
+        rowsText += '<tr><td class="' + cls + '"' + disabled + '>' +
+                    day + ' ' + sym + '</td></tr>';
+      }
+      document.getElementById('cells').innerHTML = rows;
+      document.getElementById('cells-text').innerHTML = rowsText;
+
+      document.querySelectorAll('#cells td.day').forEach(function (cell) {
+        cell.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (cell.getAttribute('aria-disabled') === 'true') return;
+          document.getElementById('selected').textContent = cell.getAttribute('data-date');
+        });
+      });
+    }
+
+    document.getElementById('next').addEventListener('click', function () {
+      offset += 1;
+      render();
+    });
+    document.getElementById('prev').addEventListener('click', function () {
+      offset -= 1;
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

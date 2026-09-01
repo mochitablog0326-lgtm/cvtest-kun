@@ -1,0 +1,43 @@
+[
+  {
+    "id": "qualva",
+    "label": "qualva",
+    "detect": { "urlIncludes": ["qualva.jp", "qualva.com"] },
+    "rules": {
+      "nameFieldMustInclude": ["テスト", "てすと"],
+      "forceValues": {}
+    },
+    "cleanup": {
+      "auto": true,
+      "note": "テストCVは毎日2時に自動削除され、成果対象からも除外されます。管理画面での操作は不要です。"
+    },
+    "warning": "テストにもかかわらず途中で離脱するとダッシュボードの数値に影響します。一度入力を開始したら必ず最後まで到達させてください。",
+    "docUrl": ""
+  },
+  {
+    "id": "dairin",
+    "label": "Dairin",
+    "detect": { "urlIncludes": ["dairin.jp"] },
+    "rules": {
+      "nameFieldMustInclude": ["テスト"]
+    },
+    "cleanup": {
+      "auto": false,
+      "note": "Dairin管理画面 > 成果確認 > 中間CV/最終CV から該当CVを手動で非承認にしてください（非承認理由に「テスト」と入力）。通常CVとして計上されるため、放置すると成果数がずれます。"
+    },
+    "warning": "",
+    "docUrl": ""
+  },
+  {
+    "id": "gunosy-ads",
+    "label": "Gunosy Ads",
+    "detect": { "urlIncludes": [] },
+    "rules": {},
+    "cleanup": {
+      "auto": false,
+      "note": "専用のコンバージョンURL経由でアクセスしてください。同一タグIDで成功済みなら再実施は不要です。管理画面への反映には1時間程度かかり、コンバージョンログは最新1回分しか表示されません。"
+    },
+    "warning": "反映に時間がかかるため、発火確認は本ツールの計測タグ検証で行ってください。",
+    "docUrl": ""
+  }
+]
