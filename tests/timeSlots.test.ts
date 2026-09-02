@@ -364,3 +364,69 @@ describe('失敗メッセージ', () => {
     expect(result.error).toContain('ラベル "14:30 ×"')
   }, 60_000)
 })
+
+describe('時間帯が後から読み込まれる場合', () => {
+  /**
+   * 日付を選ぶと表だけ先に現れ、行は少し遅れて差し込まれる作り。
+   * 表の表示だけで先へ進むと「0 セルを確認」で空振りする。
+   */
+  const asyncScenario = (over: Partial<PickSlotStep> = {}): Scenario => ({
+    version: 1,
+    name: '後から読み込み',
+    url: `${server.origin}/time-slots-async.html`,
+    stepDelayMs: 0,
+    steps: [
+      { ...pickDateStep, grid: '#calendar-date' },
+      {
+        id: 't1',
+        type: 'pickSlot',
+        label: '時間を選ぶ',
+        kind: 'time',
+        grid: '#calendar-time',
+        cell: 'tr[data-time]',
+        available: AVAILABLE,
+        strategy: 'first',
+        ...over
+      } as PickSlotStep
+    ],
+    createdAt: '2026-09-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z'
+  })
+
+  it('行が差し込まれるまで待って選ぶ', async () => {
+    const result = await run(asyncScenario(), {
+      runsDir,
+      launch: { headless: true },
+      trace: false
+    })
+
+    expect(result.status).toBe('success')
+    expect(result.pickedTime).toBe('10:00')
+  }, 90_000)
+
+  it('枠のセレクタが違うときは、ページ全体との対比で伝える', async () => {
+    const result = await run(asyncScenario({ cell: 'tr[data-nothing]' }), {
+      runsDir,
+      launch: { headless: true },
+      trace: false,
+      timeoutMs: 3_000
+    })
+
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('ページに1つもありません')
+  }, 90_000)
+
+  it('表の指定が違うときは、枠がページにある旨を伝える', async () => {
+    // 枠は存在するが、別の表を指している
+    const result = await run(asyncScenario({ grid: '#calendar-date' }), {
+      runsDir,
+      launch: { headless: true },
+      trace: false,
+      timeoutMs: 3_000
+    })
+
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('ページに 19 件ありますが')
+    expect(result.error).toContain('表を指すセレクタが違う可能性があります')
+  }, 90_000)
+})

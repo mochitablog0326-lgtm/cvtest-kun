@@ -223,6 +223,60 @@ function inRange(
   return true
 }
 
+/**
+ * 実際に枠を含んでいる表を選ぶ。
+ *
+ * 同じセレクタに複数の表が当たることがある（読み込み前の空の表が
+ * 残っている等）。`.first()` を機械的に使うと空の方を掴む。
+ */
+async function resolveGrid(
+  ctx: StepContext,
+  step: PickSlotStep,
+  isTime: boolean
+): Promise<Locator> {
+  const grids = ctx.page.locator(step.grid)
+
+  try {
+    await grids.first().waitFor({ state: 'visible', timeout: ctx.timeoutMs })
+  } catch {
+    throw new Error(await describeGridFailure(ctx, step, isTime))
+  }
+
+  const total = await grids.count().catch(() => 0)
+  for (let i = 0; i < total; i++) {
+    const candidate = grids.nth(i)
+    if ((await candidate.locator(step.cell).count().catch(() => 0)) > 0) return candidate
+  }
+  return grids.first()
+}
+
+/** 枠が1つも見つからない理由を切り分けて伝える。 */
+async function describeNoCells(
+  ctx: StepContext,
+  step: PickSlotStep,
+  isTime: boolean
+): Promise<string> {
+  const what = isTime ? '時間' : '日付'
+  const onPage = await ctx.page.locator(step.cell).count().catch(() => 0)
+  const grids = await ctx.page.locator(step.grid).count().catch(() => 0)
+
+  if (onPage > 0) {
+    return (
+      `${what}の枠「${step.cell}」はページに ${onPage} 件ありますが、` +
+      `「${step.grid}」の中には見つかりません（表は ${grids} 件一致）。` +
+      '表を指すセレクタが違う可能性があります。ピッカーで作り直してください。'
+    )
+  }
+
+  return (
+    `${what}の枠「${step.cell}」がページに1つもありません（表 "${step.grid}" は ${grids} 件一致）。` +
+    (isTime
+      ? '日付を選ぶと時間帯が読み込まれる作りの場合、先に日付を選ぶステップが必要です。' +
+        'すでにある場合は、読み込みを待つ wait ステップを間に入れてください。'
+      : '枠を指すセレクタが違う可能性があります。ピッカーで作り直してください。')
+  )
+}
+
 /** 表が見つからない・表示されない理由を切り分けて伝える。 */
 async function describeGridFailure(
   ctx: StepContext,
@@ -269,18 +323,23 @@ export async function pickSlot(
   const inspected: { date: string | null; available: boolean; text: string }[] = []
 
   for (let month = 0; month <= maxNav; month++) {
-    const grid = ctx.page.locator(step.grid).first()
+    const grid = await resolveGrid(ctx, step, isTime)
 
-    // 表示待ちで落ちたときに何が起きたのか分かるようにする。
-    // 素の TimeoutError だけでは、セレクタ違いなのか未表示なのか判別できない
+    /*
+     * 枠が1つ現れるまで待つ。
+     *
+     * 予約サイトは日付を選んだ後に時間帯を読み込むことが多く、
+     * 表そのものは先に現れて中身が空、ということが起きる。
+     * 表の表示だけで先へ進むと「0 セルを確認」で空振りする。
+     */
+    const cells = grid.locator(step.cell)
     try {
-      await grid.waitFor({ state: 'visible', timeout: ctx.timeoutMs })
+      await cells.first().waitFor({ state: 'attached', timeout: ctx.timeoutMs })
     } catch {
-      throw new Error(await describeGridFailure(ctx, step, isTime))
+      throw new Error(await describeNoCells(ctx, step, isTime))
     }
 
     const context = isTime ? undefined : await visibleYearMonth(ctx.page, step.grid)
-    const cells = grid.locator(step.cell)
     const count = await cells.count()
 
     const candidates: { index: number; value: string }[] = []
