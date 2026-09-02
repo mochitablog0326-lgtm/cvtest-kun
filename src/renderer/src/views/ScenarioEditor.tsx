@@ -5,6 +5,13 @@ import type { RunResult, StepResult } from '../../../types/result'
 import type { TestCvPreset } from '../../../types/preset'
 import type { PickedElement } from '../../../types/picker'
 import { PickerPane } from '../components/PickerPane'
+import {
+  applyPick,
+  hasSelector,
+  moveStep as moveStepIn,
+  removeStep as removeStepIn,
+  setStepValue
+} from '../lib/steps'
 
 interface Props {
   scenario: Scenario
@@ -152,33 +159,18 @@ export function ScenarioEditor({
     }
   }
 
-  /** ピッカーで選ばれた要素をステップに反映する。 */
+  /** ピッカーで選ばれた要素をステップに反映する。取り直し中は差し替える。 */
   const handlePicked = (step: Step, picked: PickedElement): void => {
-    if (repickId) {
-      // 取り直し: 種類とラベルは保ったままセレクタだけ差し替える
-      update({
-        steps: scenario.steps.map((s) =>
-          s.id === repickId && 'selector' in s ? { ...s, selector: picked.selector } : s
-        ) as Step[]
-      })
-      setRepickId(undefined)
-      return
-    }
-    update({ steps: [...scenario.steps, step] })
+    update({ steps: applyPick(scenario.steps, step, picked, repickId) })
+    if (repickId) setRepickId(undefined)
   }
 
   const moveStep = (id: string, direction: -1 | 1): void => {
-    const index = scenario.steps.findIndex((s) => s.id === id)
-    const next = index + direction
-    if (index < 0 || next < 0 || next >= scenario.steps.length) return
-    const steps = [...scenario.steps]
-    const [moved] = steps.splice(index, 1)
-    steps.splice(next, 0, moved!)
-    update({ steps })
+    update({ steps: moveStepIn(scenario.steps, id, direction) })
   }
 
   const removeStep = (id: string): void => {
-    update({ steps: scenario.steps.filter((s) => s.id !== id) })
+    update({ steps: removeStepIn(scenario.steps, id) })
   }
 
   const start = async (): Promise<void> => {
@@ -406,12 +398,9 @@ export function ScenarioEditor({
                       {'value' in step ? (
                         <input
                           value={String(step.value ?? '')}
-                          onChange={(e) => {
-                            const steps = scenario.steps.map((s) =>
-                              s.id === step.id ? { ...s, value: e.target.value } : s
-                            )
-                            update({ steps: steps as Step[] })
-                          }}
+                          onChange={(e) =>
+                            update({ steps: setStepValue(scenario.steps, step.id, e.target.value) })
+                          }
                         />
                       ) : (
                         <span className="muted">—</span>
@@ -428,7 +417,7 @@ export function ScenarioEditor({
                         <button title="下へ" onClick={() => moveStep(step.id, 1)}>
                           ↓
                         </button>
-                        {'selector' in step && (
+                        {hasSelector(step) && (
                           <button
                             title="セレクタを取り直す"
                             className={repickId === step.id ? 'primary' : ''}

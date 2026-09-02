@@ -155,7 +155,16 @@ export function PickerPane({
     }
   }
 
-  const emit = (step: Step, picked: PickedElement): void => onStep(step, picked)
+  /*
+   * ピッカーの購読は一度だけ登録する（[] 依存）。そのため購読時の関数が
+   * そのまま握られ続ける。onStep をそのまま呼ぶと、最初のレンダー時点の
+   * 状態（取り直し対象や編集中のシナリオ）を見てしまい、取り直しが
+   * 追加として扱われる。常に最新を呼ぶよう ref 経由にする。
+   */
+  const onStepRef = useRef(onStep)
+  onStepRef.current = onStep
+
+  const emit = (step: Step, picked: PickedElement): void => onStepRef.current(step, picked)
 
   /** 通常の要素 → 型に応じたステップ。 */
   const addStepFor = (picked: PickedElement): void => {
@@ -283,6 +292,15 @@ export function PickerPane({
       <div className="panel">
         <h2>{title}</h2>
 
+        {repickLabel && (
+          <div className="banner warn">
+            「{repickLabel}」を取り直します。ページを開き、選択モードで対象をクリックしてください。
+            <button style={{ marginLeft: 12 }} onClick={onCancelRepick}>
+              やめる
+            </button>
+          </div>
+        )}
+
         <div className="row">
           <input
             className="grow"
@@ -317,15 +335,6 @@ export function PickerPane({
               </div>
               <span className="muted grow ellipsis">{nav?.loading ? '読み込み中… ' : ''}{nav?.url ?? inputUrl}</span>
             </div>
-
-            {repickLabel && (
-              <div className="banner warn" style={{ marginTop: 10 }}>
-                「{repickLabel}」を取り直します。選択モードで対象をクリックしてください。
-                <button style={{ marginLeft: 12 }} onClick={onCancelRepick}>
-                  やめる
-                </button>
-              </div>
-            )}
 
             {learn && (
               <div className="banner warn" style={{ marginTop: 10 }}>

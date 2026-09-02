@@ -25,7 +25,6 @@
     "src/presets/**/*",
     "src/cli/**/*",
     "src/types/**/*",
-    "tests/**/*",
     "electron.vite.config.ts"
   ]
 }
