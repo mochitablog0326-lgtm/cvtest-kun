@@ -62,7 +62,7 @@ export const PICKER_SCRIPT = /* js */ `
     box.style.width = rect.width + 'px';
     box.style.height = rect.height + 'px';
 
-    const name = resolveLabel(el) || textOf(el) || el.tagName.toLowerCase();
+    const name = resolveLabel(el) || displayText(el) || el.tagName.toLowerCase();
     tag.textContent = name.slice(0, 60);
     tag.style.display = 'block';
     // 要素の上に出す。上端に余白がなければ下に回す
@@ -113,6 +113,20 @@ export const PICKER_SCRIPT = /* js */ `
     return el;
   }
 
+  /**
+   * 表示用のテキスト。
+   *
+   * <select> の textContent は option の全文が連結されたものになる。
+   * これをラベルに使うと「年 2010年 2009年 …」のような文字列になり、
+   * UIの一覧が読めなくなるので、選択肢の羅列は返さない。
+   */
+  function displayText(el) {
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'select') return '';
+    if (tag === 'textarea') return '';
+    return textOf(el);
+  }
+
   function describe(el) {
     const attrs = {};
     for (const a of Array.from(el.attributes)) attrs[a.name] = a.value;
@@ -123,7 +137,7 @@ export const PICKER_SCRIPT = /* js */ `
       inputType: el.getAttribute('type') || undefined,
       classes: Array.from(el.classList),
       attrs: attrs,
-      text: textOf(el),
+      text: displayText(el),
       hasChildLink: Boolean(el.querySelector('a, button')),
       looksLikeCalendarCell: looksLikeCalendarCell(el)
     };

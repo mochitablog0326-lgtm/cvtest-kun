@@ -332,3 +332,41 @@ pre.log {
   background: var(--accent);
   color: #fff;
 }
+
+/*
+ * ステップ一覧。
+ * ラベルは長くなりがち（select の選択肢や説明文が入る）ので、
+ * 列幅を固定して値の入力欄が潰れないようにする。
+ */
+.steps-table {
+  table-layout: fixed;
+}
+
+.steps-table col.c-num { width: 40px; }
+.steps-table col.c-type { width: 104px; }
+.steps-table col.c-label { width: auto; }
+.steps-table col.c-value { width: 38%; }
+.steps-table col.c-status { width: 84px; }
+.steps-table col.c-actions { width: 80px; }
+
+.steps-table th {
+  white-space: nowrap;
+}
+
+.steps-table td {
+  vertical-align: middle;
+}
+
+/* はみ出すテキストは省略し、全文は title 属性で見せる */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 値の入力欄は等幅にする。{{today+7}} のようなテンプレートを読みやすくするため */
+.steps-table input[type='text'],
+.steps-table input:not([type]) {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12.5px;
+}

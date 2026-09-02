@@ -168,8 +168,7 @@ export function Recorder({ onCreated }: Props): JSX.Element {
 
   /** 通常の要素 → 型に応じたステップを足す。 */
   const addStepFor = (picked: PickedElement): void => {
-    const label = picked.label || picked.text || picked.tagName
-    const base = { id: newId(), label }
+    const base = { id: newId(), label: stepLabelFor(picked) }
 
     const type = (picked.inputType ?? '').toLowerCase()
     if (picked.tagName === 'select') {
@@ -434,7 +433,13 @@ export function Recorder({ onCreated }: Props): JSX.Element {
       {steps.length > 0 && (
         <div className="panel">
           <h2>4. ステップ（{steps.length}）</h2>
-          <table>
+          <table className="steps-table">
+            <colgroup>
+              <col className="c-num" />
+              <col className="c-type" />
+              <col className="c-label" />
+              <col className="c-actions" />
+            </colgroup>
             <tbody>
               {steps.map((step, index) => (
                 <tr key={step.id}>
@@ -442,7 +447,9 @@ export function Recorder({ onCreated }: Props): JSX.Element {
                   <td>
                     <span className="pill">{step.type}</span>
                   </td>
-                  <td>{step.label ?? ''}</td>
+                  <td className="ellipsis" title={step.label ?? ''}>
+                    {step.label ?? ''}
+                  </td>
                   <td>
                     <button onClick={() => setSteps((prev) => prev.filter((s) => s.id !== step.id))}>
                       削除
@@ -461,6 +468,23 @@ export function Recorder({ onCreated }: Props): JSX.Element {
       )}
     </>
   )
+}
+
+/**
+ * ステップに付ける表示名。
+ *
+ * ラベルが取れないときに要素のテキストへ落ちるが、長すぎると一覧が
+ * 読めなくなるので name 属性を優先し、最後に長さを詰める。
+ */
+function stepLabelFor(picked: PickedElement): string {
+  const raw =
+    picked.label ||
+    picked.text ||
+    picked.attrs['name'] ||
+    picked.attrs['id'] ||
+    picked.tagName
+  const trimmed = raw.replace(/\s+/g, ' ').trim()
+  return trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed
 }
 
 /** カレンダー全体のセレクタを推測する。ユーザーが編集画面で直せる。 */

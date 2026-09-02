@@ -104,6 +104,33 @@ describe('ピッカー（ラベルを押したとき）', () => {
   })
 })
 
+describe('ピッカー（ラベルの無い select）', () => {
+  const picks: PickedElement[] = []
+
+  beforeAll(async () => {
+    await session.page.goto(`${server.origin}/styled-controls.html`)
+    await startPicker(session.page, (p) => picks.push(p))
+    await session.page.click('select[name="birth_year"]')
+    await session.page.waitForTimeout(200)
+  }, 30_000)
+
+  afterAll(async () => {
+    await stopPicker(session.page)
+  })
+
+  it('選択肢の全文を表示テキストにしない', () => {
+    // textContent は "年2010年2009年2008年" になるが、これをラベルにすると
+    // ステップ一覧が読めなくなる
+    expect(picks[0]?.tagName).toBe('select')
+    expect(picks[0]?.text).toBe('')
+    expect(picks[0]?.text).not.toContain('2010年')
+  })
+
+  it('name 属性を頼りにセレクタを作る', () => {
+    expect(picks[0]?.selector).toBe('select[name="birth_year"]')
+  })
+})
+
 describe('実行（隠れたラジオ・チェックボックス）', () => {
   const scenario = (steps: Scenario['steps']): Scenario => ({
     version: 1,

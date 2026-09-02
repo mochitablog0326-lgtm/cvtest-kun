@@ -319,7 +319,14 @@ export function ScenarioEditor({
         {scenario.steps.length === 0 ? (
           <div className="empty">ステップがありません。</div>
         ) : (
-          <table>
+          <table className="steps-table">
+            <colgroup>
+              <col className="c-num" />
+              <col className="c-type" />
+              <col className="c-label" />
+              <col className="c-value" />
+              <col className="c-status" />
+            </colgroup>
             <thead>
               <tr>
                 <th>#</th>
@@ -338,7 +345,9 @@ export function ScenarioEditor({
                     <td>
                       <span className="pill">{step.type}</span>
                     </td>
-                    <td>{step.label ?? ''}</td>
+                    <td className="ellipsis" title={step.label ?? ''}>
+                      {step.label ?? ''}
+                    </td>
                     <td>
                       {'value' in step ? (
                         <input
