@@ -1,5 +1,6 @@
 import type { FillStep } from '../../types/scenario'
 import { locate } from '../browser'
+import { waitForTarget } from './target'
 import type { StepContext, StepDetail } from './context'
 
 /**
@@ -13,7 +14,7 @@ export async function fill(step: FillStep, ctx: StepContext): Promise<StepDetail
   const value = ctx.expand(step.value)
   const locator = locate(ctx.page, step.selector, step.frame).first()
 
-  await locator.waitFor({ state: 'visible', timeout: ctx.timeoutMs })
+  await waitForTarget(locator, 'visible', ctx, step, step.selector)
   await locator.fill(value)
 
   // 入力後の値を読み戻して確認する。maxlength で切られたり、

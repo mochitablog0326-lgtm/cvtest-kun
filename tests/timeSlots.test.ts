@@ -240,3 +240,127 @@ describe('ピッカーによる時間枠の認識', () => {
     expect(guessGrid(picks.at(-1)!)).toBe('#calendar-date')
   }, 60_000)
 })
+
+describe('枠のセレクタ生成', () => {
+  let session: Session
+  const picks: PickedElement[] = []
+
+  beforeAll(async () => {
+    session = await launch({ headless: true })
+    await session.page.goto(`${server.origin}/time-slots.html`)
+    await session.page.click('#calendar-date td[data-date="2026-10-05"]')
+    await session.page.waitForSelector('#calendar-time', { state: 'visible' })
+    await startPicker(session.page, (p) => picks.push(p))
+  }, 60_000)
+
+  afterAll(async () => {
+    await stopPicker(session.page)
+    await session?.close()
+  })
+
+  it('表の行にラベル指定のセレクタを作らない', async () => {
+    // getByLabel は「ラベルに紐づくフォーム部品」を指す。
+    // <tr> に使うと不可視の何かを待ち続けてタイムアウトする
+    await session.page.click('#calendar-time tr[data-time="14:30"] td')
+    await session.page.waitForTimeout(200)
+
+    const selector = picks.at(-1)!.selector
+    expect(selector).not.toContain('internal:label')
+    expect(selector).not.toContain('internal:role')
+  }, 60_000)
+
+  it('data 属性を使って行を一意に指す', async () => {
+    await session.page.click('#calendar-time tr[data-time="15:00"] th')
+    await session.page.waitForTimeout(200)
+    expect(picks.at(-1)!.selector).toBe('tr[data-time="15:00"]')
+  }, 60_000)
+
+  it('生成したセレクタが実際にその行だけを指す', async () => {
+    await session.page.click('#calendar-time tr[data-time="16:00"] th')
+    await session.page.waitForTimeout(200)
+
+    const selector = picks.at(-1)!.selector
+    const locator = session.page.locator(selector)
+    expect(await locator.count()).toBe(1)
+    expect(await locator.getAttribute('data-time')).toBe('16:00')
+    // 実際に見えている＝待ってもタイムアウトしない
+    expect(await locator.isVisible()).toBe(true)
+  }, 60_000)
+
+  it('日付セルも data-date で指す', async () => {
+    await session.page.click('#calendar-date td[data-date="2026-10-07"]')
+    await session.page.waitForTimeout(200)
+    expect(picks.at(-1)!.selector).toBe('td[data-date="2026-10-07"]')
+  }, 60_000)
+
+  it('フォーム部品では従来どおりラベル指定を使える', async () => {
+    await session.page.goto(`${server.origin}/contact.html`)
+    await startPicker(session.page, (p) => picks.push(p))
+    await session.page.click('input[name="tel"]')
+    await session.page.waitForTimeout(200)
+
+    // input には name があるのでそちらが優先されるが、
+    // ラベル指定の経路自体が塞がれていないことを確認する
+    const picked = picks.at(-1)!
+    expect(picked.tagName).toBe('input')
+    expect(picked.label).toBe('電話番号')
+  }, 60_000)
+})
+
+describe('失敗メッセージ', () => {
+  const base = (steps: Scenario['steps']): Scenario => ({
+    version: 1,
+    name: 'エラー確認',
+    url: `${server.origin}/time-slots.html`,
+    stepDelayMs: 0,
+    steps,
+    createdAt: '2026-09-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z'
+  })
+
+  it('対象が無いときは取直を案内する', async () => {
+    const result = await run(
+      base([{ id: 's1', type: 'fill', label: 'セイ', selector: '#no-such', value: 'x' }]),
+      { runsDir, launch: { headless: true }, trace: false, timeoutMs: 2_000 }
+    )
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('「セイ」の対象が見つかりません')
+    expect(result.error).toContain('取直')
+    expect(result.error).not.toMatch(/TimeoutError/)
+  }, 60_000)
+
+  it('存在するが非表示のときはその旨を伝える', async () => {
+    // 時間表は日付を選ぶまで非表示
+    const result = await run(
+      base([
+        {
+          id: 's1',
+          type: 'click',
+          label: '時間の行',
+          selector: 'tr[data-time="10:00"]'
+        }
+      ]),
+      { runsDir, launch: { headless: true }, trace: false, timeoutMs: 2_000 }
+    )
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('表示されていません')
+    expect(result.error).toContain('1 件一致')
+  }, 60_000)
+
+  it('ラベル指定は読める形で示す', async () => {
+    const result = await run(
+      base([
+        {
+          id: 's1',
+          type: 'fill',
+          label: '謎の項目',
+          selector: 'internal:label="14:30 ×"s',
+          value: 'x'
+        }
+      ]),
+      { runsDir, launch: { headless: true }, trace: false, timeoutMs: 2_000 }
+    )
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('ラベル "14:30 ×"')
+  }, 60_000)
+})

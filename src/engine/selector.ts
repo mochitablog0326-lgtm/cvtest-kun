@@ -8,6 +8,28 @@ export const SELECTOR_SCRIPT = /* js */ `
 (() => {
   const TEST_ATTRS = ['data-testid', 'data-test', 'data-cy', 'data-qa'];
 
+  /** 要素を一意に指せることが多い data 属性。 */
+  const DATA_ATTRS = [
+    'data-time',
+    'data-date',
+    'data-slot',
+    'data-day',
+    'data-value',
+    'data-id',
+    'data-key'
+  ];
+
+  /** ラベル・role で指してよい要素か。フォーム部品と押せるものだけ。 */
+  function isLabelable(el) {
+    const tag = el.tagName.toLowerCase();
+    if (['input', 'select', 'textarea', 'button', 'meter', 'output', 'progress'].includes(tag)) {
+      return true;
+    }
+    if (tag === 'a' && el.hasAttribute('href')) return true;
+    const role = el.getAttribute('role');
+    return role === 'button' || role === 'link' || role === 'checkbox' || role === 'radio';
+  }
+
   /** 自動生成っぽい id（ランダム文字列・連番のみ）は不安定なので使わない。 */
   function isStableId(id) {
     if (!id) return false;
@@ -289,17 +311,33 @@ export const SELECTOR_SCRIPT = /* js */ `
       }
     }
 
-    const label = resolveLabel(el);
-    if (label && label.length <= 40) {
-      // Playwright のラベル指定を文字列で表現する
-      const sel = 'internal:label=' + JSON.stringify(label) + 's';
-      return sel;
+    // 値を持つ data 属性は安定した目印になる。
+    // 予約枠は <tr data-time="10:00"> のようにここへ識別子を置くことが多い
+    for (const attr of DATA_ATTRS) {
+      const value = el.getAttribute(attr);
+      if (!value) continue;
+      const sel = tag + '[' + attr + '="' + value.replace(/"/g, '\\\\"') + '"]';
+      if (isUnique(sel)) return sel;
     }
 
-    const role = roleOf(el);
-    const accessibleName = label || textOf(el) || el.getAttribute('value') || '';
-    if (role && accessibleName && accessibleName.length <= 40) {
-      return 'internal:role=' + role + '[name=' + JSON.stringify(accessibleName) + 's]';
+    /*
+     * ラベルと role による指定はフォーム部品にだけ使う。
+     *
+     * Playwright の getByLabel は「ラベルに紐づくフォーム部品」を指す。
+     * <tr> や <td> に使うと、対応する部品が無い（あっても不可視の）ものを
+     * 待ち続けてタイムアウトする。表の行やセルは CSS パスで指す。
+     */
+    if (isLabelable(el)) {
+      const label = resolveLabel(el);
+      if (label && label.length <= 40) {
+        return 'internal:label=' + JSON.stringify(label) + 's';
+      }
+
+      const role = roleOf(el);
+      const accessibleName = label || textOf(el) || el.getAttribute('value') || '';
+      if (role && accessibleName && accessibleName.length <= 40) {
+        return 'internal:role=' + role + '[name=' + JSON.stringify(accessibleName) + 's]';
+      }
     }
 
     return cssPath(el);
@@ -307,7 +345,7 @@ export const SELECTOR_SCRIPT = /* js */ `
 
   return {
     buildSelector, resolveLabel, cssPath, isStableId, roleOf, cleanLabel, textOf,
-    cssEscape, isVisible, associatedLabel, associatedControl
+    cssEscape, isVisible, associatedLabel, associatedControl, isLabelable
   };
 })()
 `

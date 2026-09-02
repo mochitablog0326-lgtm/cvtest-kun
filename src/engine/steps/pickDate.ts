@@ -1,5 +1,6 @@
 import type { PickDateStep } from '../../types/scenario'
 import { locate } from '../browser'
+import { waitForTarget } from './target'
 import type { StepContext, StepDetail } from './context'
 
 /**
@@ -12,7 +13,7 @@ export async function pickDate(step: PickDateStep, ctx: StepContext): Promise<St
   const selector = ctx.expand(step.selector)
   const locator = locate(ctx.page, selector, step.frame).first()
 
-  await locator.waitFor({ state: 'visible', timeout: ctx.timeoutMs })
+  await waitForTarget(locator, 'visible', ctx, step, selector)
   await locator.scrollIntoViewIfNeeded().catch(() => {})
   await locator.click({ timeout: ctx.timeoutMs })
 

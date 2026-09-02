@@ -1,5 +1,6 @@
 import type { ClickStep } from '../../types/scenario'
 import { locate } from '../browser'
+import { waitForTarget } from './target'
 import type { StepContext, StepDetail } from './context'
 
 /**
@@ -10,7 +11,7 @@ export async function click(step: ClickStep, ctx: StepContext): Promise<StepDeta
   const locator = locate(ctx.page, step.selector, step.frame).first()
   const urlBefore = ctx.page.url()
 
-  await locator.waitFor({ state: 'visible', timeout: ctx.timeoutMs })
+  await waitForTarget(locator, 'visible', ctx, step, step.selector)
   await locator.scrollIntoViewIfNeeded().catch(() => {})
   await locator.click({ timeout: ctx.timeoutMs })
 
