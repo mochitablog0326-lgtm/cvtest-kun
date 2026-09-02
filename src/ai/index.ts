@@ -1,33 +1,23 @@
 import type { Field } from '../types/field'
 import { AiCache, cacheKey } from './cache'
 import type { AIProvider, GeneratedValues, PageContext } from './provider'
-import { createClaudeCodeProvider } from './providers/claudeCode'
 import { createCodexCliProvider } from './providers/codexCli'
-import { createGeminiCliProvider } from './providers/geminiCli'
-import { OllamaProvider } from './providers/ollama'
-import { OpenAiApiProvider } from './providers/openaiApi'
 
 export * from './provider'
 export * from './prompt'
 export * from './cache'
 
 export interface ProviderSettings {
-  openai?: { apiKey?: string; baseUrl?: string; model?: string }
-  ollama?: { baseUrl?: string; model?: string }
-  claudeCode?: { model?: string }
   codex?: { model?: string }
-  gemini?: { model?: string }
 }
 
-/** 利用可能な全プロバイダ。UIの選択肢になる。 */
+/**
+ * 利用できるプロバイダ。現在は Codex CLI のみ。
+ *
+ * 抽象（AIProvider）は残してあるので、増やしたくなったらここに足すだけでよい。
+ */
 export function allProviders(settings: ProviderSettings = {}): AIProvider[] {
-  return [
-    new OllamaProvider(settings.ollama),
-    createClaudeCodeProvider(settings.claudeCode?.model),
-    createCodexCliProvider(settings.codex?.model),
-    createGeminiCliProvider(settings.gemini?.model),
-    new OpenAiApiProvider(settings.openai)
-  ]
+  return [createCodexCliProvider(settings.codex?.model)]
 }
 
 export interface ProviderInfo {

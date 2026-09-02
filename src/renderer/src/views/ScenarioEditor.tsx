@@ -3,6 +3,8 @@ import type { Scenario, Step } from '../../../types/scenario'
 import type { ExtractResult, Field } from '../../../types/field'
 import type { RunResult, StepResult } from '../../../types/result'
 import type { TestCvPreset } from '../../../types/preset'
+import type { PickedElement } from '../../../types/picker'
+import { PickerPane } from '../components/PickerPane'
 
 interface Props {
   scenario: Scenario
@@ -44,6 +46,9 @@ export function ScenarioEditor({
   const [running, setRunning] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showPicker, setShowPicker] = useState(false)
+  /** 取り直し対象のステップID。指定中は追加ではなく差し替えになる */
+  const [repickId, setRepickId] = useState<string | undefined>()
 
   useEffect(() => {
     void (async () => {
@@ -147,6 +152,35 @@ export function ScenarioEditor({
     }
   }
 
+  /** ピッカーで選ばれた要素をステップに反映する。 */
+  const handlePicked = (step: Step, picked: PickedElement): void => {
+    if (repickId) {
+      // 取り直し: 種類とラベルは保ったままセレクタだけ差し替える
+      update({
+        steps: scenario.steps.map((s) =>
+          s.id === repickId && 'selector' in s ? { ...s, selector: picked.selector } : s
+        ) as Step[]
+      })
+      setRepickId(undefined)
+      return
+    }
+    update({ steps: [...scenario.steps, step] })
+  }
+
+  const moveStep = (id: string, direction: -1 | 1): void => {
+    const index = scenario.steps.findIndex((s) => s.id === id)
+    const next = index + direction
+    if (index < 0 || next < 0 || next >= scenario.steps.length) return
+    const steps = [...scenario.steps]
+    const [moved] = steps.splice(index, 1)
+    steps.splice(next, 0, moved!)
+    update({ steps })
+  }
+
+  const removeStep = (id: string): void => {
+    update({ steps: scenario.steps.filter((s) => s.id !== id) })
+  }
+
   const start = async (): Promise<void> => {
     if (
       !window.confirm(
@@ -207,6 +241,9 @@ export function ScenarioEditor({
         </div>
         <div className="row">
           <button onClick={() => void save()}>保存</button>
+          <button onClick={() => setShowPicker((v) => !v)}>
+            {showPicker ? 'ピッカーを閉じる' : 'ピッカーで編集'}
+          </button>
           <button onClick={() => void loadFields()} disabled={busy}>
             項目を読み込む
           </button>
@@ -221,6 +258,21 @@ export function ScenarioEditor({
           )}
         </div>
       </div>
+
+      {showPicker && (
+        <PickerPane
+          url={scenario.url}
+          onUrlChange={(next) => update({ url: next })}
+          onStep={handlePicked}
+          title="ピッカーで編集"
+          repickLabel={
+            repickId
+              ? scenario.steps.find((s) => s.id === repickId)?.label ?? 'ステップ'
+              : undefined
+          }
+          onCancelRepick={() => setRepickId(undefined)}
+        />
+      )}
 
       {fields.length > 0 && (
         <div className="panel">
@@ -326,6 +378,7 @@ export function ScenarioEditor({
               <col className="c-label" />
               <col className="c-value" />
               <col className="c-status" />
+              <col className="c-ops" />
             </colgroup>
             <thead>
               <tr>
@@ -334,6 +387,7 @@ export function ScenarioEditor({
                 <th>ラベル</th>
                 <th>値</th>
                 <th>結果</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -365,6 +419,31 @@ export function ScenarioEditor({
                     </td>
                     <td>
                       {result && <span className={`pill ${result.status}`}>{result.status}</span>}
+                    </td>
+                    <td>
+                      <div className="ops">
+                        <button title="上へ" onClick={() => moveStep(step.id, -1)}>
+                          ↑
+                        </button>
+                        <button title="下へ" onClick={() => moveStep(step.id, 1)}>
+                          ↓
+                        </button>
+                        {'selector' in step && (
+                          <button
+                            title="セレクタを取り直す"
+                            className={repickId === step.id ? 'primary' : ''}
+                            onClick={() => {
+                              setRepickId(step.id)
+                              setShowPicker(true)
+                            }}
+                          >
+                            取直
+                          </button>
+                        )}
+                        <button title="削除" onClick={() => removeStep(step.id)}>
+                          ✕
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

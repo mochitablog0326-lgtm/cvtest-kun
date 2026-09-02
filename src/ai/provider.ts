@@ -164,31 +164,86 @@ export function sanitizeValues(
   return { values, submit, notes }
 }
 
-/** モデルの返答からJSON部分を取り出す。```json フェンスや前置きに耐える。 */
-export function extractJson(text: string): unknown {
-  const trimmed = text.trim()
+/**
+ * 文字列中から、括弧の対応が取れた JSON オブジェクトを全て拾う。
+ *
+ * CLI 系のプロバイダは本文の前後にログや進捗を出すため、
+ * 「最初の { から最後の } まで」では別物を掴んでしまう。
+ */
+function balancedObjects(text: string): string[] {
+  const found: string[] = []
+  let depth = 0
+  let start = -1
+  let inString = false
+  let escaped = false
 
-  const fence = /```(?:json)?\s*\n([\s\S]*?)```/.exec(trimmed)
-  const candidates = [fence?.[1], trimmed].filter((c): c is string => Boolean(c))
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!
 
-  for (const candidate of candidates) {
-    try {
-      return JSON.parse(candidate)
-    } catch {
-      // 前後に説明文が付いている場合に備え、最初の { から最後の } を試す
-      const start = candidate.indexOf('{')
-      const end = candidate.lastIndexOf('}')
-      if (start >= 0 && end > start) {
-        try {
-          return JSON.parse(candidate.slice(start, end + 1))
-        } catch {
-          continue
+    if (inString) {
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+
+    if (ch === '"') {
+      inString = true
+      continue
+    }
+    if (ch === '{') {
+      if (depth === 0) start = i
+      depth++
+      continue
+    }
+    if (ch === '}') {
+      if (depth > 0) {
+        depth--
+        if (depth === 0 && start >= 0) {
+          found.push(text.slice(start, i + 1))
+          start = -1
         }
       }
     }
   }
+  return found
+}
 
-  throw new Error(`AIの返答をJSONとして読めませんでした: ${trimmed.slice(0, 200)}`)
+function looksLikeAnswer(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && 'values' in value
+}
+
+/**
+ * モデルの返答からJSON部分を取り出す。
+ * ```json フェンス・前置き・CLIのログ出力に耐える。
+ */
+export function extractJson(text: string): unknown {
+  const candidates: string[] = []
+
+  // コードフェンスの中を最優先
+  for (const m of text.matchAll(/```(?:json)?\s*\n([\s\S]*?)```/g)) {
+    if (m[1]) candidates.push(m[1])
+  }
+  candidates.push(text)
+  // 括弧の対応が取れた塊。後ろにあるものほど最終回答である可能性が高い
+  candidates.push(...balancedObjects(text).reverse())
+
+  let fallback: unknown
+  for (const candidate of candidates) {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(candidate.trim())
+    } catch {
+      continue
+    }
+    // values を持つものが本命。ログ中の別のJSONを拾わないための判定
+    if (looksLikeAnswer(parsed)) return parsed
+    if (fallback === undefined) fallback = parsed
+  }
+
+  if (fallback !== undefined) return fallback
+
+  throw new Error(`AIの返答をJSONとして読めませんでした: ${text.trim().slice(0, 200)}`)
 }
 
 /** 生テキスト → 検証済みの値。全プロバイダ共通の出口。 */

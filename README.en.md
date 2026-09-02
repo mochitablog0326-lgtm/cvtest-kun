@@ -175,13 +175,17 @@ therefore structurally impossible.
 Model output is schema-validated, and values that are unknown, honeypot-targeted,
 outside a `<select>`'s options, or over-length are discarded.
 
-Providers: **Ollama** (local — for forms whose DOM must not leave the network),
-Claude Code CLI, Codex CLI, Gemini CLI, and the OpenAI API.
+Provider: **Codex CLI** (`codex`). It appears in the generation dropdown when installed.
+The subprocess runs in a temp directory with a read-only sandbox so the coding agent
+does not touch your working tree.
 
-> Using a non-local provider sends form field metadata (labels and types) to that
-> service. Scenarios stay local; analysis does not. Use Ollama when that matters.
+> Using it sends form field metadata (labels and types) to that service.
+> Scenarios stay local; analysis does not.
 > Whether a subscription CLI may be used as another app's backend depends on that
 > service's own terms — check them yourself.
+
+The `AIProvider` abstraction is still in place, so adding another backend is a
+one-line change in `src/ai/index.ts`.
 
 Generation and execution are **separate buttons**. Nothing is submitted until a human
 has reviewed the values.

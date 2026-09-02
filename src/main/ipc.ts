@@ -65,10 +65,8 @@ export function registerIpc(): void {
   }
 
   const providerSettings = async (): Promise<ProviderSettings> => {
-    const secretValues = await secrets.all()
-    return {
-      openai: { apiKey: secretValues['OPENAI_API_KEY'] }
-    }
+    const config = await store.loadConfig()
+    return { codex: { model: config.aiModel } }
   }
 
   // --- config ---

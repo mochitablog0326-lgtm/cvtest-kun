@@ -7,6 +7,8 @@ export interface AppConfig {
   /** シナリオの保存先。ユーザーが任意のフォルダを指定できる（設計 §12） */
   scenarioDir: string
   providerId?: string
+  /** Codex CLI に渡すモデル名。未指定なら CLI の既定 */
+  aiModel?: string
   browserChannel?: string
   headless?: boolean
   stepDelayMs?: number
