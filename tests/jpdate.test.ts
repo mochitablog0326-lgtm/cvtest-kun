@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { parseJpDate, parseYearMonth, normalizeDigits } from '../src/engine/jpdate'
+import {
+  parseJpDate,
+  parseYearMonth,
+  normalizeDigits,
+  parseTime,
+  timeInRange
+} from '../src/engine/jpdate'
 
 const REF = new Date('2026-09-01T05:00:00.000Z') // 2026-09-01 JST
 
@@ -69,5 +75,52 @@ describe('parseYearMonth', () => {
     expect(parseYearMonth('2026/09')).toEqual({ year: 2026, month: 9 })
     expect(parseYearMonth('令和8年9月')).toEqual({ year: 2026, month: 9 })
     expect(parseYearMonth('来月')).toBeNull()
+  })
+})
+
+describe('parseTime', () => {
+  it('コロン区切りを読む', () => {
+    expect(parseTime('10:00')).toBe('10:00')
+    expect(parseTime('9:30')).toBe('09:30')
+    expect(parseTime('１０：３０')).toBe('10:30')
+  })
+
+  it('セル内の記号が混ざっていても読む', () => {
+    expect(parseTime('10:00 ○')).toBe('10:00')
+    expect(parseTime('14:30×')).toBe('14:30')
+  })
+
+  it('日本語表記を読む', () => {
+    expect(parseTime('10時')).toBe('10:00')
+    expect(parseTime('10時30分')).toBe('10:30')
+    expect(parseTime('午後2時')).toBe('14:00')
+    expect(parseTime('午後2時30分')).toBe('14:30')
+    expect(parseTime('午前10時')).toBe('10:00')
+  })
+
+  it('12時の扱い', () => {
+    expect(parseTime('午後12時')).toBe('12:00')
+    expect(parseTime('午前12時')).toBe('00:00')
+  })
+
+  it('4桁表記を読む', () => {
+    expect(parseTime('1030')).toBe('10:30')
+  })
+
+  it('解釈できない文字列は null', () => {
+    expect(parseTime('')).toBeNull()
+    expect(parseTime('×')).toBeNull()
+    expect(parseTime('満席')).toBeNull()
+    expect(parseTime('25:00')).toBeNull()
+    expect(parseTime('10:99')).toBeNull()
+  })
+})
+
+describe('timeInRange', () => {
+  it('範囲で絞る', () => {
+    expect(timeInRange('10:00', undefined)).toBe(true)
+    expect(timeInRange('10:00', { from: '09:00', to: '15:00' })).toBe(true)
+    expect(timeInRange('08:00', { from: '09:00' })).toBe(false)
+    expect(timeInRange('16:00', { to: '15:00' })).toBe(false)
   })
 })

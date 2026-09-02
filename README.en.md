@@ -54,7 +54,8 @@ Japanese web forms have conventions that generic form-fillers handle badly:
 ## Features
 
 - Point-and-click element picker to build a scenario — no selector writing
-- Booking-calendar support: relative dates and **automatic open-slot selection**
+- Booking-calendar support: relative dates and **automatic open-slot selection**,
+  for both date grids and time-of-day lists (`○ △ ×` availability, `data-time` rows)
 - AI-assisted value generation, **always behind a human review step**
 - **Conversion tag verification**, counting fire events to catch double-firing
 - Screenshots, Playwright traces, and a result JSON saved for every run

@@ -9,6 +9,8 @@ type DateMode = 'fixed' | 'relative' | 'auto'
 interface LearnState {
   /** 空き枠と満席枠を1つずつクリックさせる学習フロー */
   stage: 'available' | 'full'
+  /** date: 日付カレンダー / time: 時間帯の一覧 */
+  kind: 'date' | 'time'
   grid: string
   cell: string
   available?: PickedElement
@@ -202,22 +204,23 @@ export function PickerPane({
         setError(
           '2つの枠の見た目に違いが見つかりませんでした。空き枠と満席枠をもう一度選び直してください。'
         )
-        setLearn({ stage: 'available', grid: current.grid, cell: current.cell })
+        setLearn({ stage: 'available', kind: current.kind, grid: current.grid, cell: current.cell })
         return
       }
 
+      const isTime = current.kind === 'time'
       emit(
         {
           id: newId(),
-          label: '空いている枠を自動で選ぶ',
+          label: isTime ? '空いている時間を自動で選ぶ' : '空いている枠を自動で選ぶ',
           type: 'pickSlot',
+          kind: current.kind,
           grid: current.grid,
           cell: current.cell,
           available: rule,
-          // 直近の枠を避けるのを既定にする（設計 §11）
-          range: { minDaysAhead: 1 },
-          strategy: 'random',
-          maxMonthNav: 3
+          // 日付は直近の枠を避けるのを既定にする（設計 §11）
+          ...(isTime ? {} : { range: { minDaysAhead: 1 }, maxMonthNav: 3 }),
+          strategy: 'random'
         },
         picked
       )
@@ -240,7 +243,7 @@ export function PickerPane({
         emit({ id: newId(), type: 'fill', selector: picked.selector, value: '' }, picked)
         return
       }
-      if (picked.looksLikeCalendarCell) {
+      if (picked.looksLikeTimeSlot || picked.looksLikeCalendarCell) {
         setDialog(picked)
         return
       }
@@ -251,16 +254,20 @@ export function PickerPane({
   /** カレンダーダイアログの決定。 */
   const confirmDate = (): void => {
     if (!dialog) return
-    const label = `日付を選ぶ（${dialog.text || dialog.selector}）`
+    const isTime = Boolean(dialog.looksLikeTimeSlot)
+    const label = isTime
+      ? `時間を選ぶ（${dialog.text || dialog.selector}）`
+      : `日付を選ぶ（${dialog.text || dialog.selector}）`
 
     if (dateMode === 'fixed') {
-      const date = dialog.attrs['data-date']
+      const fixed = isTime ? dialog.attrs['data-time'] : dialog.attrs['data-date']
+      const attr = isTime ? 'data-time' : 'data-date'
       emit(
         {
           id: newId(),
           label,
           type: 'pickDate',
-          selector: date ? `[data-date="${date}"]` : dialog.selector
+          selector: fixed ? `[${attr}="${fixed}"]` : dialog.selector
         },
         dialog
       )
@@ -283,7 +290,12 @@ export function PickerPane({
     }
 
     // 空き枠の自動選択 → 判定ルールの学習フローへ（設計 §7）
-    setLearn({ stage: 'available', grid: guessGrid(dialog), cell: guessCell(dialog) })
+    setLearn({
+      stage: 'available',
+      kind: isTime ? 'time' : 'date',
+      grid: guessGrid(dialog),
+      cell: guessCell(dialog)
+    })
     setDialog(undefined)
   }
 
@@ -341,9 +353,13 @@ export function PickerPane({
 
             {learn && (
               <div className="banner warn" style={{ marginTop: 10 }}>
-                {learn.stage === 'available'
-                  ? '空いている枠を1つクリックしてください'
-                  : '埋まっている枠を1つクリックしてください'}
+                {learn.kind === 'time'
+                  ? learn.stage === 'available'
+                    ? '空いている時間を1つクリックしてください'
+                    : '埋まっている時間を1つクリックしてください'
+                  : learn.stage === 'available'
+                    ? '空いている枠を1つクリックしてください'
+                    : '埋まっている枠を1つクリックしてください'}
               </div>
             )}
 
@@ -369,34 +385,40 @@ export function PickerPane({
 
       {dialog && (
         <div className="panel">
-          <h2>この日付をどう扱いますか？</h2>
+          <h2>
+            {dialog.looksLikeTimeSlot ? 'この時間枠をどう扱いますか？' : 'この日付をどう扱いますか？'}
+          </h2>
           <div className="row">
             <label>
               <input type="radio" checked={dateMode === 'fixed'} onChange={() => setDateMode('fixed')} />{' '}
-              この日付で固定する
+              {dialog.looksLikeTimeSlot ? 'この時間で固定する' : 'この日付で固定する'}
             </label>
           </div>
-          <div className="row">
-            <label>
-              <input
-                type="radio"
-                checked={dateMode === 'relative'}
-                onChange={() => setDateMode('relative')}
-              />{' '}
-              相対日付にする（今日から
-              <input
-                type="number"
-                style={{ width: 70, display: 'inline-block', margin: '0 6px' }}
-                value={daysAhead}
-                onChange={(e) => setDaysAhead(Number(e.target.value))}
-              />
-              日後）
-            </label>
-          </div>
+          {!dialog.looksLikeTimeSlot && (
+            <div className="row">
+              <label>
+                <input
+                  type="radio"
+                  checked={dateMode === 'relative'}
+                  onChange={() => setDateMode('relative')}
+                />{' '}
+                相対日付にする（今日から
+                <input
+                  type="number"
+                  style={{ width: 70, display: 'inline-block', margin: '0 6px' }}
+                  value={daysAhead}
+                  onChange={(e) => setDaysAhead(Number(e.target.value))}
+                />
+                日後）
+              </label>
+            </div>
+          )}
           <div className="row">
             <label>
               <input type="radio" checked={dateMode === 'auto'} onChange={() => setDateMode('auto')} />{' '}
-              空いている枠から自動で選ぶ（推奨）
+              {dialog.looksLikeTimeSlot
+                ? '空いている時間から自動で選ぶ（推奨）'
+                : '空いている枠から自動で選ぶ（推奨）'}
             </label>
           </div>
           <div className="row" style={{ marginTop: 12 }}>
@@ -424,16 +446,30 @@ export function stepLabelFor(picked: PickedElement): string {
   return trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed
 }
 
-/** カレンダー全体のセレクタを推測する。ユーザーが編集画面で直せる。 */
-function guessGrid(picked: PickedElement): string {
-  const classes = picked.classes.filter((c) => /calendar|cal|schedule|month/i.test(c))
+/** カレンダー・時間表の全体を指すセレクタを推測する。ユーザーが編集画面で直せる。 */
+export function guessGrid(picked: PickedElement): string {
+  const container = picked.attrs['data-grid-id']
+  if (container) return `#${container}`
+  const classes = picked.classes.filter((c) => /calendar|cal|schedule|month|time|slot/i.test(c))
   if (classes.length > 0) return `.${classes[0]}`
   return 'table'
 }
 
-/** セル1つのセレクタを推測する。 */
-function guessCell(picked: PickedElement): string {
-  const stable = picked.classes.filter((c) => !/selected|active|today|hover/i.test(c))
+/**
+ * 枠1つを指すセレクタを推測する。
+ *
+ * 空き状況を表す class（available など）を使うと、埋まっている枠が
+ * 候補から外れて判定が成り立たなくなる。data-time / data-date のような
+ * 「枠であること」を示す属性があればそれを最優先する。
+ */
+export function guessCell(picked: PickedElement): string {
+  for (const attr of ['data-time', 'data-date', 'data-slot', 'data-day']) {
+    if (picked.attrs[attr] !== undefined) return `${picked.tagName}[${attr}]`
+  }
+
+  const stable = picked.classes.filter(
+    (c) => !/selected|active|today|hover|available|free|open|full|disabled|notfree/i.test(c)
+  )
   if (stable.length > 0) return `${picked.tagName}.${stable[0]}`
   return picked.tagName
 }

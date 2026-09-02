@@ -4,7 +4,7 @@ import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import type { AvailableRule, PickSlotStep } from '../../types/scenario'
 import { TZ } from '../template'
-import { parseJpDate, parseYearMonth } from '../jpdate'
+import { parseJpDate, parseYearMonth, parseTime, timeInRange } from '../jpdate'
 import type { StepContext, StepDetail } from './context'
 
 dayjs.extend(utc)
@@ -183,6 +183,29 @@ export function dateOfCell(
   return null
 }
 
+/**
+ * セルが指す時刻を HH:MM で返す。data-time -> 見出し -> テキスト の順。
+ *
+ * 時間帯の一覧は `<tr data-time="10:00"><th>10:00</th><td>○</td></tr>` のように
+ * 行そのものが枠になっていることが多い。
+ */
+export function timeOfCell(info: CellInfo): string | null {
+  const attrNames = ['data-time', 'data-slot', 'data-hour', 'data-value', 'value']
+  for (const name of attrNames) {
+    const value = info.attrs[name]
+    if (!value) continue
+    const parsed = parseTime(value)
+    if (parsed) return parsed
+  }
+
+  if (info.ariaLabel) {
+    const parsed = parseTime(info.ariaLabel)
+    if (parsed) return parsed
+  }
+
+  return parseTime(info.text)
+}
+
 function inRange(
   date: string | null,
   range: PickSlotStep['range'],
@@ -217,31 +240,42 @@ export async function pickSlot(
   opts: PickSlotOptions = {}
 ): Promise<StepDetail> {
   const reference = opts.reference ?? new Date()
-  const maxNav = step.maxMonthNav ?? 3
+  const isTime = step.kind === 'time'
+  const maxNav = isTime ? 0 : step.maxMonthNav ?? 3
   const inspected: { date: string | null; available: boolean; text: string }[] = []
 
   for (let month = 0; month <= maxNav; month++) {
     const grid = ctx.page.locator(step.grid).first()
     await grid.waitFor({ state: 'visible', timeout: ctx.timeoutMs })
 
-    const context = await visibleYearMonth(ctx.page, step.grid)
+    const context = isTime ? undefined : await visibleYearMonth(ctx.page, step.grid)
     const cells = grid.locator(step.cell)
     const count = await cells.count()
 
-    const candidates: { index: number; date: string }[] = []
+    const candidates: { index: number; value: string }[] = []
 
     for (let i = 0; i < count; i++) {
       const info = await readCell(cells.nth(i), step.available.hasChild)
       const available = isAvailableFromInfo(info, step.available)
-      const date = dateOfCell(info, context, reference)
 
+      if (isTime) {
+        const time = timeOfCell(info)
+        inspected.push({ date: time, available, text: info.text })
+        if (!available) continue
+        if (!time) continue
+        if (!timeInRange(time, step.timeRange)) continue
+        candidates.push({ index: i, value: time })
+        continue
+      }
+
+      const date = dateOfCell(info, context, reference)
       inspected.push({ date, available, text: info.text })
 
       if (!available) continue
       if (!date) continue
       if (!inRange(date, step.range, reference)) continue
 
-      candidates.push({ index: i, date })
+      candidates.push({ index: i, value: date })
     }
 
     if (candidates.length > 0) {
@@ -257,17 +291,21 @@ export async function pickSlot(
       await target.scrollIntoViewIfNeeded().catch(() => {})
       await target.click({ timeout: ctx.timeoutMs })
 
-      ctx.log(`  空き枠を選択: ${chosen.date}（候補 ${candidates.length} 件）`)
+      ctx.log(
+        `  ${isTime ? '空き時間' : '空き枠'}を選択: ${chosen.value}（候補 ${candidates.length} 件）`
+      )
 
       return {
-        pickedDate: chosen.date,
+        // 何を予約したかは必ず残す（設計 §11.2）
+        ...(isTime ? { pickedTime: chosen.value } : { pickedDate: chosen.value }),
         candidateCount: candidates.length,
         monthsNavigated: month,
         strategy: step.strategy
       }
     }
 
-    if (!step.nextMonth || month === maxNav) break
+    // 時間帯の一覧に「翌月」は無い
+    if (isTime || !step.nextMonth || month === maxNav) break
 
     ctx.log(`  この月に空きなし。翌月へ（${month + 1}/${maxNav}）`)
     await ctx.page.click(step.nextMonth, { timeout: ctx.timeoutMs })
@@ -281,6 +319,7 @@ export async function pickSlot(
     .join(' ')
 
   throw new Error(
-    `条件に合う空き枠が見つかりませんでした（${inspected.length} セルを確認）。先頭10件: ${summary}`
+    `条件に合う${isTime ? '空き時間' : '空き枠'}が見つかりませんでした` +
+      `（${inspected.length} セルを確認）。先頭10件: ${summary}`
   )
 }

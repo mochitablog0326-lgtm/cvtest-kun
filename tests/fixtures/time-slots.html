@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>時間帯を選ぶ | サンプル</title>
+  <style>
+    #calendar-time tr { cursor: pointer; }
+    #calendar-time tr.notFree { color: #999; cursor: default; }
+    #picked { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>ご予約</h1>
+
+  <h2>希望日</h2>
+  <table id="calendar-date"><tbody>
+    <tr>
+      <td class="day" data-date="2026-10-05">5<em>○</em></td>
+      <td class="day full" data-date="2026-10-06" aria-disabled="true">6<em>×</em></td>
+      <td class="day" data-date="2026-10-07">7<em>○</em></td>
+    </tr>
+  </tbody></table>
+
+  <h2>時間帯</h2>
+  <!-- 行そのものが1枠。空き状況は class と ○× の両方で表される -->
+  <table id="calendar-time" style="display: table;">
+                <tr class="available" data-time="10:00">
+                    <th>10:00</th>
+                    <td>○</td>
+                </tr>
+                            <tr class="notFree" data-time="10:30">
+                    <th>10:30</th>
+                    <td>×</td>
+                </tr>
+                            <tr class="available" data-time="11:00">
+                    <th>11:00</th>
+                    <td>○</td>
+                </tr>
+                            <tr class="notFree" data-time="11:30">
+                    <th>11:30</th>
+                    <td>×</td>
+                </tr>
+                            <tr class="available" data-time="12:00">
+                    <th>12:00</th>
+                    <td>○</td>
+                </tr>
+                            <tr class="notFree" data-time="12:30">
+                    <th>12:30</th>
+                    <td>×</td>
+                </tr>
+                            <tr class="available" data-time="13:00">
+                    <th>13:00</th>
+                    <td>○</td>
+                </tr>
+                            <tr class="notFree" data-time="13:30">
+                    <th>13:30</th>
+                    <td>×</td>
+                </tr>
+                            <tr class="available" data-time="14:00">
+                    <th>14:00</th>
+                    <td>○</td>
+                </tr>
+                            <tr class="notFree" data-time="14:30">
+                    <th>14:30</th>
+                    <td>×</td>
+                </tr>
+                            <tr class="available" data-time="15:00">
+                    <th>15:00</th>
+                    <td>○</td>
+                </tr>
+                            <tr class="notFree" data-time="15:30">
+                    <th>15:30</th>
+                    <td>×</td>
+                </tr>
+                            <tr class="available" data-time="16:00">
+                    <th>16:00</th>
+                    <td>○</td>
+                </tr>
+                            <tr class="notFree" data-time="16:30">
+                    <th>16:30</th>
+                    <td>×</td>
+                </tr>
+                            <tr class="available" data-time="17:00">
+                    <th>17:00</th>
+                    <td>○</td>
+                </tr>
+                            <tr class="notFree" data-time="17:30">
+                    <th>17:30</th>
+                    <td>×</td>
+                </tr>
+                            <tr class="available" data-time="18:00">
+                    <th>18:00</th>
+                    <td>○</td>
+                </tr>
+                            <tr class="notFree" data-time="18:30">
+                    <th>18:30</th>
+                    <td>×</td>
+                </tr>
+                            <tr class="available" data-time="19:00">
+                    <th>19:00</th>
+                    <td>○</td>
+                </tr>
+            </table>
+
+  <p>選択: <span id="picked">未選択</span></p>
+
+  <script>
+    document.querySelectorAll('#calendar-time tr').forEach(function (row) {
+      row.addEventListener('click', function () {
+        if (row.classList.contains('notFree')) return;
+        document.getElementById('picked').textContent = row.getAttribute('data-time');
+      });
+    });
+    document.querySelectorAll('#calendar-date td.day').forEach(function (cell) {
+      cell.addEventListener('click', function () {
+        if (cell.getAttribute('aria-disabled') === 'true') return;
+        document.getElementById('picked').textContent = cell.getAttribute('data-date');
+      });
+    });
+  </script>
+</body>
+</html>

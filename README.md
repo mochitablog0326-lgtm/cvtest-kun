@@ -28,7 +28,7 @@ English README: [README.en.md](README.en.md)
 ## できること
 
 - URLを開いて、フォーム項目を**GUIでクリックして選ぶ**だけでシナリオが作れる
-- 相対日付（`{{today+7}}`）と**空き枠の自動選択**に対応した予約カレンダー操作
+- 相対日付（`{{today+7}}`）と**空き枠の自動選択**に対応した予約カレンダー操作（日付・時間帯とも）
 - AIによるシナリオ自動生成（**人間のレビューを必ず挟む**）
 - **計測タグの発火検証** — 発火の有無だけでなく**回数**まで数える
 - 実行ごとにスクリーンショット・Playwright trace・結果JSONを保存
@@ -173,13 +173,42 @@ cvtest validate contact-form.json
 | `select` | `selector`, `value` | プルダウン選択（value / ラベルどちらでも可） |
 | `check` | `selector`, `checked` | チェックボックス・ラジオ |
 | `pickDate` | `selector` | 日付を固定・相対指定でクリック |
-| `pickSlot` | `grid`, `cell`, `available`, `strategy` | **空き枠の自動選択** |
+| `pickSlot` | `grid`, `cell`, `available`, `strategy` | **空き枠の自動選択**（日付・時間帯） |
 | `wait` | `ms` または `selector` | 待機 |
 | `assert` | `selector`, `mode` | 到達確認（`text` / `visible` / `url`） |
 | `assertTracking` | `provider` | **計測タグの発火検証** |
 | `screenshot` | `name` | スクリーンショット |
 
 共通の任意フィールド: `label`（UI表示用）、`frame`（iframeセレクタ）、`optional`（失敗しても続行）。
+
+### `pickSlot`（日付・時間帯の自動選択）
+
+`kind` で日付カレンダーと時間帯の一覧を切り替えます（既定は `date`）。
+
+**時間帯の例** — 行そのものが1枠になっている作り:
+
+```json
+{
+  "type": "pickSlot",
+  "kind": "time",
+  "grid": "#calendar-time",
+  "cell": "tr[data-time]",
+  "available": { "notClass": ["notFree"], "textNotIn": ["×"] },
+  "timeRange": { "from": "10:00", "to": "16:00" },
+  "strategy": "random"
+}
+```
+
+```html
+<tr class="available" data-time="10:00"><th>10:00</th><td>○</td></tr>
+<tr class="notFree"   data-time="10:30"><th>10:30</th><td>×</td></tr>
+```
+
+時刻は `data-time` → `aria-label` → セルのテキスト の順に解決します。
+`10:00` のほか `10時30分` `午後2時` のような表記も読めます。
+
+日付と時間を続けて選んだ場合、後始末チェックリストには
+`予約枠 2026-10-05 10:00 をキャンセルする` のように**両方**が載ります。
 
 ### `pickSlot` の空き判定ルール
 
@@ -207,7 +236,9 @@ cvtest validate contact-form.json
 | `textIn` / `textNotIn` | セルのテキストに含まれる/含まれない記号 |
 | `hasChild` | 子要素セレクタ（空き枠だけリンクになっている場合） |
 | `strategy` | `first` / `last` / `random`。**`random` にすると毎回同じ枠を潰しません** |
-| `minDaysAhead` | 直近の枠を避ける |
+| `kind` | `date`（既定）/ `time` |
+| `range.minDaysAhead` | 直近の枠を避ける（`kind: date`） |
+| `timeRange.from` / `.to` | 時間帯を `HH:MM` で絞る（`kind: time`） |
 
 ### テンプレート記法
 

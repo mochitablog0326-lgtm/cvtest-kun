@@ -125,3 +125,55 @@ export function parseYearMonth(raw: string): { year: number; month: number } | n
   }
   return null
 }
+
+/**
+ * 予約サイトの時間枠表記を HH:MM に正規化する。
+ *
+ * `10:00` のほか、日本のサイトでよくある `10時`『午後2時30分』にも対応する。
+ * 解釈できない場合は null（空セルや記号だけのセルが混ざるため例外にしない）。
+ */
+export function parseTime(raw: string): string | null {
+  if (!raw) return null
+  const text = normalizeDigits(raw).trim()
+  if (!text) return null
+
+  const pad = (n: number): string => String(n).padStart(2, '0')
+
+  const isPm = /午後|ＰＭ|PM|pm/.test(text)
+  const isAm = /午前|ＡＭ|AM|am/.test(text)
+
+  const toIso = (hourRaw: number, minute: number): string | null => {
+    let hour = hourRaw
+    if (minute < 0 || minute > 59) return null
+    // 12時間表記の補正。午後12時は12時、午前12時は0時
+    if (isPm && hour < 12) hour += 12
+    if (isAm && hour === 12) hour = 0
+    if (hour < 0 || hour > 23) return null
+    return `${pad(hour)}:${pad(minute)}`
+  }
+
+  // 10:00 / 9:30
+  const colon = /(\d{1,2})\s*[:：]\s*(\d{2})/.exec(text)
+  if (colon) return toIso(Number(colon[1]), Number(colon[2]))
+
+  // 10時30分 / 10時
+  const kanji = /(\d{1,2})\s*時\s*(?:(\d{1,2})\s*分)?/.exec(text)
+  if (kanji) return toIso(Number(kanji[1]), kanji[2] ? Number(kanji[2]) : 0)
+
+  // 1000 のような4桁表記
+  const compact = /^(\d{2})(\d{2})$/.exec(text)
+  if (compact) return toIso(Number(compact[1]), Number(compact[2]))
+
+  return null
+}
+
+/** HH:MM の前後関係を比べる。範囲指定の判定に使う。 */
+export function timeInRange(
+  time: string,
+  range: { from?: string; to?: string } | undefined
+): boolean {
+  if (!range) return true
+  if (range.from && time < range.from) return false
+  if (range.to && time > range.to) return false
+  return true
+}

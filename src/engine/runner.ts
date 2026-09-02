@@ -91,6 +91,7 @@ export async function run(scenario: Scenario, options: RunOptions): Promise<RunR
   const steps: StepResult[] = []
   const screenshots: string[] = []
   let pickedDate: string | undefined
+  let pickedTime: string | undefined
   let status: RunResult['status'] = 'success'
   let error: string | undefined
 
@@ -142,6 +143,9 @@ export async function run(scenario: Scenario, options: RunOptions): Promise<RunR
         const detail = await runStep(step, ctx)
         if (detail && typeof detail['pickedDate'] === 'string') {
           pickedDate = detail['pickedDate']
+        }
+        if (detail && typeof detail['pickedTime'] === 'string') {
+          pickedTime = detail['pickedTime']
         }
         result = {
           id: step.id,
@@ -205,12 +209,13 @@ export async function run(scenario: Scenario, options: RunOptions): Promise<RunR
     status,
     steps,
     pickedDate,
+    pickedTime,
     screenshots,
     tracePath: options.trace === false ? undefined : join(runDir, 'trace.zip'),
     trackingEvents: tracking?.getEvents() ?? [],
     cookieSnapshots: tracking?.getCookieSnapshots() ?? [],
     presetId: preset?.id,
-    cleanup: buildCleanup({ status, pickedDate, preset, warnings }),
+    cleanup: buildCleanup({ status, pickedDate, pickedTime, preset, warnings }),
     runDir,
     error
   }
@@ -247,6 +252,7 @@ async function captureFailure(ctx: StepContext, screenshots: string[]): Promise<
 function buildCleanup(input: {
   status: RunResult['status']
   pickedDate?: string
+  pickedTime?: string
   preset?: TestCvPreset
   warnings: string[]
 }): CleanupItem[] {
@@ -256,11 +262,13 @@ function buildCleanup(input: {
     items.push({ done: false, text: input.preset.cleanup.note, source: 'preset' })
   }
 
-  // 何を予約したか分からないと片付けられない（設計 §11.2）
-  if (input.pickedDate) {
+  // 何を予約したか分からないと片付けられない（設計 §11.2）。
+  // 日付と時刻の両方を選んだ場合は並べて出す
+  const slot = [input.pickedDate, input.pickedTime].filter(Boolean).join(' ')
+  if (slot) {
     items.push({
       done: false,
-      text: `予約枠 ${input.pickedDate} をキャンセルする`,
+      text: `予約枠 ${slot} をキャンセルする`,
       source: 'reservation'
     })
   }
@@ -291,7 +299,8 @@ function renderCleanup(result: RunResult, preset: TestCvPreset | undefined): str
   lines.push(`- 実行: ${result.startedAt}`)
   lines.push(`- 結果: ${mark}（${result.status}）`)
   if (preset) lines.push(`- 媒体プリセット: ${preset.label}`)
-  if (result.pickedDate) lines.push(`- 選択した予約枠: **${result.pickedDate}**`)
+  const slot = [result.pickedDate, result.pickedTime].filter(Boolean).join(' ')
+  if (slot) lines.push(`- 選択した予約枠: **${slot}**`)
   lines.push('')
 
   if (result.cleanup.length === 0) {

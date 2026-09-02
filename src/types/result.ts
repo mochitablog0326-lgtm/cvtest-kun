@@ -46,6 +46,8 @@ export interface RunResult {
   steps: StepResult[]
   /** pickSlot が何を選んだか（必須で記録） */
   pickedDate?: string
+  /** 時間枠を選んだ場合の時刻（HH:MM） */
+  pickedTime?: string
   screenshots: string[]
   tracePath?: string
   trackingEvents: TrackingEvent[]

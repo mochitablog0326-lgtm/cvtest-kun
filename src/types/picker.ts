@@ -19,6 +19,8 @@ export const pickedElementSchema = z.object({
   hasChildLink: z.boolean(),
   /** カレンダーセルらしさ。ピッカーUIで日付ダイアログを出すか決める */
   looksLikeCalendarCell: z.boolean(),
+  /** 時間枠らしさ。時刻の扱いを聞くダイアログを出すか決める */
+  looksLikeTimeSlot: z.boolean().optional(),
   frame: z.string().max(2000).optional()
 })
 

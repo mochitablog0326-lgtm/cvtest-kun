@@ -78,16 +78,49 @@ export const PICKER_SCRIPT = /* js */ `
     if (tag) tag.style.display = 'none';
   }
 
+  var DATE_ATTRS = ['data-date', 'datetime', 'data-day'];
+  var TIME_ATTRS = ['data-time', 'data-slot', 'data-hour'];
+
+  function hasAnyAttr(el, names) {
+    if (!el || !el.hasAttribute) return false;
+    for (var i = 0; i < names.length; i++) {
+      if (el.hasAttribute(names[i])) return true;
+    }
+    return false;
+  }
+
+  function inCalendarContainer(el) {
+    return Boolean(
+      el.closest(
+        'table, [class*="calendar"], [class*="Calendar"], [id*="calendar"],' +
+          '[class*="schedule"], [id*="schedule"], [class*="reserve"], [id*="reserve"]'
+      )
+    );
+  }
+
   /** カレンダーのセルらしいか。日付ダイアログを出すかの判断に使う。 */
   function looksLikeCalendarCell(el) {
     const tag = el.tagName.toLowerCase();
     const text = textOf(el);
-    const hasDateAttr =
-      el.hasAttribute('data-date') || el.hasAttribute('datetime') || el.hasAttribute('data-day');
-    if (hasDateAttr) return true;
+    if (hasAnyAttr(el, DATE_ATTRS)) return true;
     if (tag !== 'td' && tag !== 'li' && tag !== 'div' && tag !== 'button' && tag !== 'a') return false;
-    if (!el.closest('table, [class*="calendar"], [class*="Calendar"], [id*="calendar"]')) return false;
+    if (!inCalendarContainer(el)) return false;
     return /^\\s*\\d{1,2}\\s*[^\\d]{0,4}$/.test(text);
+  }
+
+  /**
+   * 時間枠らしいか。
+   *
+   * <tr data-time="10:00"><th>10:00</th><td>○</td></tr> のように
+   * 行そのものが1枠になっている作りが多い。
+   */
+  function looksLikeTimeSlot(el) {
+    const tag = el.tagName.toLowerCase();
+    if (hasAnyAttr(el, TIME_ATTRS)) return true;
+    if (['tr', 'td', 'li', 'div', 'button', 'a'].indexOf(tag) < 0) return false;
+    if (!inCalendarContainer(el)) return false;
+    // "10:00 ○" のように時刻と空き記号だけで構成されている
+    return /^\\s*\\d{1,2}\\s*[:：]\\s*\\d{2}\\s*[^\\d]{0,4}$/.test(textOf(el));
   }
 
   /**
@@ -103,11 +136,24 @@ export const PICKER_SCRIPT = /* js */ `
     const control = associatedControl(el);
     if (control) return control;
 
-    if (looksLikeCalendarCell(el)) return el;
-    let node = el.parentElement;
+    /*
+     * 日付・時刻の属性を持つ要素を最優先する。
+     * <th>10:00</th> 自体も時刻に見えるが、空き状況を持っているのは
+     * 親の <tr data-time> の方なので、そちらを対象にする必要がある。
+     */
+    let node = el;
     let depth = 0;
+    while (node && node.nodeType === 1 && depth++ < 5) {
+      if (hasAnyAttr(node, DATE_ATTRS) || hasAnyAttr(node, TIME_ATTRS)) return node;
+      node = node.parentElement;
+    }
+
+    if (looksLikeCalendarCell(el) || looksLikeTimeSlot(el)) return el;
+
+    node = el.parentElement;
+    depth = 0;
     while (node && depth++ < 4) {
-      if (looksLikeCalendarCell(node)) return node;
+      if (looksLikeCalendarCell(node) || looksLikeTimeSlot(node)) return node;
       node = node.parentElement;
     }
     return el;
@@ -139,7 +185,8 @@ export const PICKER_SCRIPT = /* js */ `
       attrs: attrs,
       text: displayText(el),
       hasChildLink: Boolean(el.querySelector('a, button')),
-      looksLikeCalendarCell: looksLikeCalendarCell(el)
+      looksLikeCalendarCell: looksLikeCalendarCell(el),
+      looksLikeTimeSlot: looksLikeTimeSlot(el)
     };
   }
 

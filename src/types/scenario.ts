@@ -55,19 +55,32 @@ export const pickDateStepSchema = baseStepSchema.extend({
 
 export const pickSlotStepSchema = baseStepSchema.extend({
   type: z.literal('pickSlot'),
-  /** カレンダー全体 */
+  /**
+   * 何の枠を選ぶか。
+   * date は日付カレンダー、time は時間帯の一覧。既定は date。
+   */
+  kind: z.enum(['date', 'time']).optional(),
+  /** カレンダー・時間表の全体 */
   grid: z.string(),
-  /** 各セル */
+  /** 各セル（時間帯なら行） */
   cell: z.string(),
   available: availableRuleSchema,
+  /** kind: 'date' のときの範囲 */
   range: z
     .object({
       minDaysAhead: z.number().optional(),
       maxDaysAhead: z.number().optional()
     })
     .optional(),
+  /** kind: 'time' のときの範囲。HH:MM で指定する */
+  timeRange: z
+    .object({
+      from: z.string().optional(),
+      to: z.string().optional()
+    })
+    .optional(),
   strategy: z.enum(['first', 'last', 'random']),
-  /** 翌月ボタン */
+  /** 翌月ボタン（kind: 'date' のみ） */
   nextMonth: z.string().optional(),
   maxMonthNav: z.number().optional()
 })
