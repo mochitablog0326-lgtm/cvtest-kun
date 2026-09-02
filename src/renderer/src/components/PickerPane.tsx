@@ -23,9 +23,10 @@ interface Props {
   /** 見出し。呼び出し側で文脈に合わせて変える */
   title?: string
   /**
-   * 取り直しモード。指定中はステップを追加せず、
-   * 選ばれた要素を onStep 側で差し替えに使う想定。
+   * 取り直しモード。ラベルは空文字にもなりうるので、
+   * 有効かどうかは真偽値で受け取る。
    */
+  repickActive?: boolean
   repickLabel?: string
   onCancelRepick?: () => void
 }
@@ -42,6 +43,7 @@ export function PickerPane({
   onUrlChange,
   onStep,
   title = 'ブラウザ',
+  repickActive = false,
   repickLabel,
   onCancelRepick
 }: Props): JSX.Element {
@@ -60,8 +62,8 @@ export function PickerPane({
   // イベントハンドラから最新の状態を読むための写し
   const learnRef = useRef<LearnState | undefined>(undefined)
   learnRef.current = learn
-  const repickRef = useRef<string | undefined>(undefined)
-  repickRef.current = repickLabel
+  const repickRef = useRef(false)
+  repickRef.current = repickActive
 
   const slotRef = useRef<HTMLDivElement | null>(null)
 
@@ -292,9 +294,10 @@ export function PickerPane({
       <div className="panel">
         <h2>{title}</h2>
 
-        {repickLabel && (
+        {repickActive && (
           <div className="banner warn">
-            「{repickLabel}」を取り直します。ページを開き、選択モードで対象をクリックしてください。
+            「{repickLabel || 'ラベルなし'}
+            」を取り直します。ページを開き、選択モードで対象をクリックしてください。
             <button style={{ marginLeft: 12 }} onClick={onCancelRepick}>
               やめる
             </button>

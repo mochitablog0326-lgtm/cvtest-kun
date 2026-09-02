@@ -10,7 +10,8 @@ import {
   hasSelector,
   moveStep as moveStepIn,
   removeStep as removeStepIn,
-  setStepValue
+  setStepValue,
+  targetOf
 } from '../lib/steps'
 
 interface Props {
@@ -56,6 +57,8 @@ export function ScenarioEditor({
   const [showPicker, setShowPicker] = useState(false)
   /** 取り直し対象のステップID。指定中は追加ではなく差し替えになる */
   const [repickId, setRepickId] = useState<string | undefined>()
+  /** 直前に差し替えたステップ。変化が見えるよう知らせる */
+  const [repicked, setRepicked] = useState<{ id: string; selector: string } | undefined>()
 
   useEffect(() => {
     void (async () => {
@@ -162,7 +165,10 @@ export function ScenarioEditor({
   /** ピッカーで選ばれた要素をステップに反映する。取り直し中は差し替える。 */
   const handlePicked = (step: Step, picked: PickedElement): void => {
     update({ steps: applyPick(scenario.steps, step, picked, repickId) })
-    if (repickId) setRepickId(undefined)
+    if (repickId) {
+      setRepicked({ id: repickId, selector: picked.selector })
+      setRepickId(undefined)
+    }
   }
 
   const moveStep = (id: string, direction: -1 | 1): void => {
@@ -251,17 +257,23 @@ export function ScenarioEditor({
         </div>
       </div>
 
+      {repicked && (
+        <div className="banner ok">
+          セレクタを <code>{repicked.selector}</code> に差し替えました。
+          <button style={{ marginLeft: 12 }} onClick={() => setRepicked(undefined)}>
+            閉じる
+          </button>
+        </div>
+      )}
+
       {showPicker && (
         <PickerPane
           url={scenario.url}
           onUrlChange={(next) => update({ url: next })}
           onStep={handlePicked}
           title="ピッカーで編集"
-          repickLabel={
-            repickId
-              ? scenario.steps.find((s) => s.id === repickId)?.label ?? 'ステップ'
-              : undefined
-          }
+          repickActive={Boolean(repickId)}
+          repickLabel={scenario.steps.find((s) => s.id === repickId)?.label}
           onCancelRepick={() => setRepickId(undefined)}
         />
       )}
@@ -391,8 +403,15 @@ export function ScenarioEditor({
                     <td>
                       <span className="pill">{step.type}</span>
                     </td>
-                    <td className="ellipsis" title={step.label ?? ''}>
-                      {step.label ?? ''}
+                    <td title={`${step.label ?? ''}\n${targetOf(step)}`}>
+                      <div className="ellipsis">{step.label ?? ''}</div>
+                      <div
+                        className={`ellipsis selector ${
+                          repicked?.id === step.id ? 'changed' : ''
+                        }`}
+                      >
+                        {targetOf(step)}
+                      </div>
                     </td>
                     <td>
                       {'value' in step ? (

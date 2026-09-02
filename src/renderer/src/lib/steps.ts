@@ -56,3 +56,26 @@ export function applyPickToScenario(
 ): Scenario {
   return { ...scenario, steps: applyPick(scenario.steps, step, picked, repickId) }
 }
+
+/**
+ * セレクタを人に読める形にする。
+ *
+ * ピッカーは Playwright のラベル指定（internal:label=...）を作ることがあり、
+ * そのまま出しても読めないので言い換える。
+ */
+export function describeSelector(selector: string): string {
+  const label = /^internal:label=(.+)s$/.exec(selector)
+  if (label) return `ラベル ${label[1]}`
+  const role = /^internal:role=([a-z]+)\[name=(.+)s\]$/.exec(selector)
+  if (role) return `${role[1]} ${role[2]}`
+  return selector
+}
+
+/** ステップが指している対象を1行で表す。表示用。 */
+export function targetOf(step: Step): string {
+  if ('selector' in step && typeof step.selector === 'string') {
+    return describeSelector(step.selector)
+  }
+  if (step.type === 'pickSlot') return `${step.grid} → ${step.cell}`
+  return ''
+}

@@ -383,3 +383,16 @@ pre.log {
   font-size: 12px;
   line-height: 1.2;
 }
+
+/* ステップが指している対象。取り直しの結果が目で見えるように出す */
+.steps-table .selector {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.steps-table .selector.changed {
+  color: var(--ok);
+  font-weight: 600;
+}

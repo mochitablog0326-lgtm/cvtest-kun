@@ -62,17 +62,17 @@ const scenario: Scenario = {
   updatedAt: '2026-09-01T00:00:00.000Z'
 }
 
-function picked(selector: string): PickedElement {
+function picked(selector: string, calendarCell = false): PickedElement {
   return {
     selector,
     label: '新しい要素',
-    tagName: 'input',
-    inputType: 'text',
+    tagName: calendarCell ? 'td' : 'input',
+    inputType: calendarCell ? undefined : 'text',
     classes: [],
     attrs: {},
     text: '',
     hasChildLink: false,
-    looksLikeCalendarCell: false
+    looksLikeCalendarCell: calendarCell
   }
 }
 
@@ -101,6 +101,17 @@ async function render(): Promise<void> {
   await act(async () => {
     root.render(<Harness initial={current} />)
   })
+}
+
+/**
+ * 別のシナリオで描き直す。
+ * Harness は useState で初期値を保持するので、差し替えには再マウントが要る。
+ */
+async function renderWith(next: Scenario): Promise<void> {
+  await act(async () => root.unmount())
+  current = next
+  root = createRoot(container)
+  await render()
 }
 
 function findButton(text: string): HTMLButtonElement | undefined {
@@ -173,6 +184,63 @@ describe('編集画面のピッカー', () => {
       value: '【テスト】ヤマダ'
     })
     expect(current.steps[1]).toMatchObject({ id: 'b', selector: '#old-agree' })
+  })
+
+  it('差し替えたセレクタが画面に表示される', async () => {
+    // セレクタが画面に出ていないと、差し替えが起きたか利用者に分からない
+    expect(container.textContent).toContain('#old-sei')
+
+    await click(findButton('ピッカーで編集')!)
+    const repick = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent?.trim() === '取直'
+    )
+    await click(repick[0]!)
+    await act(async () => pickerListener!(picked('#new-sei')))
+
+    expect(container.textContent).toContain('#new-sei')
+    expect(container.textContent).not.toContain('#old-sei')
+    // 差し替えたことを明示する
+    expect(container.textContent).toContain('差し替えました')
+  })
+
+  it('ラベルが空のステップでも取り直せる', async () => {
+    await renderWith({
+      ...scenario,
+      steps: [{ id: 'a', type: 'fill', label: '', selector: '#old', value: '' }]
+    })
+
+    await click(findButton('ピッカーで編集')!)
+    const repick = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent?.trim() === '取直'
+    )
+    await click(repick[0]!)
+    await act(async () => pickerListener!(picked('#new')))
+
+    expect(current.steps).toHaveLength(1)
+    expect(current.steps[0]).toMatchObject({ selector: '#new' })
+  })
+
+  it('カレンダーのセルを取り直すときは日付ダイアログを出さずに差し替える', async () => {
+    await renderWith({
+      ...scenario,
+      // ラベルが空でも取り直しは効かなければならない
+      steps: [{ id: 'a', type: 'pickDate', label: '', selector: '[data-date="2026-10-05"]' }]
+    })
+
+    await click(findButton('ピッカーで編集')!)
+    const repick = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent?.trim() === '取直'
+    )
+    await click(repick[0]!)
+    await act(async () => pickerListener!(picked('[data-date="2026-11-01"]', true)))
+
+    // 取り直し中は日付の扱いを聞き直さない
+    expect(container.textContent).not.toContain('この日付をどう扱いますか')
+    expect(current.steps).toHaveLength(1)
+    expect(current.steps[0]).toMatchObject({
+      type: 'pickDate',
+      selector: '[data-date="2026-11-01"]'
+    })
   })
 
   it('取り直し後は追加モードに戻る', async () => {
