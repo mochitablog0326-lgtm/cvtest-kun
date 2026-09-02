@@ -21,6 +21,11 @@ export const pickedElementSchema = z.object({
   looksLikeCalendarCell: z.boolean(),
   /** 時間枠らしさ。時刻の扱いを聞くダイアログを出すか決める */
   looksLikeTimeSlot: z.boolean().optional(),
+  /**
+   * 枠を含む表・リストのセレクタ。
+   * id や class は行ではなく親に付いていることが多いため、ページ側で求める。
+   */
+  gridSelector: z.string().max(2000).optional(),
   frame: z.string().max(2000).optional()
 })
 

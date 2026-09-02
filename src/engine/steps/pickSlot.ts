@@ -223,6 +223,30 @@ function inRange(
   return true
 }
 
+/** 表が見つからない・表示されない理由を切り分けて伝える。 */
+async function describeGridFailure(
+  ctx: StepContext,
+  step: PickSlotStep,
+  isTime: boolean
+): Promise<string> {
+  const what = isTime ? '時間表' : 'カレンダー'
+  const total = await ctx.page.locator(step.grid).count().catch(() => 0)
+
+  if (total === 0) {
+    return (
+      `${what}「${step.grid}」がページに見つかりません。` +
+      'セレクタが違う可能性があります。ピッカーの「取直」で選び直してください。'
+    )
+  }
+
+  return (
+    `${what}「${step.grid}」が表示されませんでした（${total} 件一致、いずれも非表示）。` +
+    (isTime
+      ? '日付を選ぶと時間表が現れる作りの場合、先に日付を選ぶステップが必要です。'
+      : '表示するための操作が先に必要かもしれません。')
+  )
+}
+
 export interface PickSlotOptions {
   /** テスト用に「今日」を固定する */
   reference?: Date
@@ -246,7 +270,14 @@ export async function pickSlot(
 
   for (let month = 0; month <= maxNav; month++) {
     const grid = ctx.page.locator(step.grid).first()
-    await grid.waitFor({ state: 'visible', timeout: ctx.timeoutMs })
+
+    // 表示待ちで落ちたときに何が起きたのか分かるようにする。
+    // 素の TimeoutError だけでは、セレクタ違いなのか未表示なのか判別できない
+    try {
+      await grid.waitFor({ state: 'visible', timeout: ctx.timeoutMs })
+    } catch {
+      throw new Error(await describeGridFailure(ctx, step, isTime))
+    }
 
     const context = isTime ? undefined : await visibleYearMonth(ctx.page, step.grid)
     const cells = grid.locator(step.cell)

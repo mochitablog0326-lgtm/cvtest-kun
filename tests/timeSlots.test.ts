@@ -28,13 +28,24 @@ afterAll(async () => {
 /** ○ を空き、× を満席とみなすルール。ピッカーが学習する形 */
 const AVAILABLE = { notClass: ['notFree'], textNotIn: ['×'] }
 
+/** 日付を選ぶステップ。時間表は日付を選ぶまで表示されない */
+const pickDateStep: Scenario['steps'][number] = {
+  id: 'd0',
+  type: 'pickSlot',
+  label: '日付を選ぶ',
+  grid: '#calendar-date',
+  cell: 'td.day',
+  available: { notClass: ['full'], notAttr: ['aria-disabled'], textNotIn: ['×'] },
+  strategy: 'first'
+}
+
 function scenario(step: Omit<PickSlotStep, 'id' | 'type'>, extra: Scenario['steps'] = []): Scenario {
   return {
     version: 1,
     name: '時間帯の予約',
     url: `${server.origin}/time-slots.html`,
     stepDelayMs: 0,
-    steps: [{ id: 's1', type: 'pickSlot', label: '時間を選ぶ', ...step }, ...extra],
+    steps: [pickDateStep, { id: 's1', type: 'pickSlot', label: '時間を選ぶ', ...step }, ...extra],
     createdAt: '2026-09-01T00:00:00.000Z',
     updatedAt: '2026-09-01T00:00:00.000Z'
   }
@@ -59,7 +70,6 @@ describe('時間帯の自動選択', () => {
     expect(result.status).toBe('success')
     // 何を予約したか分からないと片付けられない（設計 §11.2）
     expect(result.pickedTime).toBe('10:00')
-    expect(result.pickedDate).toBeUndefined()
   }, 90_000)
 
   it('実際にその行がクリックされている', async () => {
@@ -112,28 +122,11 @@ describe('時間帯の自動選択', () => {
   }, 90_000)
 
   it('日付と時間を続けて選ぶと、後始末に両方が載る', async () => {
-    const both: Scenario = {
-      version: 1,
-      name: '日付と時間',
-      url: `${server.origin}/time-slots.html`,
-      stepDelayMs: 0,
-      steps: [
-        {
-          id: 'd1',
-          type: 'pickSlot',
-          label: '日付を選ぶ',
-          grid: '#calendar-date',
-          cell: 'td.day',
-          available: { notClass: ['full'], notAttr: ['aria-disabled'], textNotIn: ['×'] },
-          strategy: 'first'
-        },
-        { id: 't1', type: 'pickSlot', label: '時間を選ぶ', ...timeStep }
-      ],
-      createdAt: '2026-09-01T00:00:00.000Z',
-      updatedAt: '2026-09-01T00:00:00.000Z'
-    }
-
-    const result = await run(both, { runsDir, launch: { headless: true }, trace: false })
+    const result = await run(scenario(timeStep), {
+      runsDir,
+      launch: { headless: true },
+      trace: false
+    })
 
     expect(result.status).toBe('success')
     expect(result.pickedDate).toBe('2026-10-05')
@@ -145,6 +138,35 @@ describe('時間帯の自動選択', () => {
     const cleanup = await readFile(join(result.runDir, 'cleanup.md'), 'utf8')
     expect(cleanup).toContain('2026-10-05 10:00')
   }, 120_000)
+
+  it('日付を選ぶ前に時間を選ぼうとしたら、理由が分かる形で失敗する', async () => {
+    const result = await run(
+      {
+        version: 1,
+        name: '順序ミス',
+        url: `${server.origin}/time-slots.html`,
+        stepDelayMs: 0,
+        steps: [{ id: 's1', type: 'pickSlot', label: '時間を選ぶ', ...timeStep }],
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T00:00:00.000Z'
+      },
+      { runsDir, launch: { headless: true }, trace: false, timeoutMs: 3_000 }
+    )
+
+    expect(result.status).toBe('failed')
+    // 素のタイムアウトではなく、何をすべきか分かる文言にする
+    expect(result.error).toContain('先に日付を選ぶステップが必要です')
+    expect(result.error).not.toMatch(/TimeoutError/)
+  }, 90_000)
+
+  it('存在しないセレクタは「見つかりません」と伝える', async () => {
+    const result = await run(
+      scenario({ ...timeStep, grid: '#no-such-table' }),
+      { runsDir, launch: { headless: true }, trace: false, timeoutMs: 3_000 }
+    )
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('ページに見つかりません')
+  }, 90_000)
 })
 
 describe('ピッカーによる時間枠の認識', () => {
@@ -154,6 +176,10 @@ describe('ピッカーによる時間枠の認識', () => {
   beforeAll(async () => {
     session = await launch({ headless: true })
     await session.page.goto(`${server.origin}/time-slots.html`)
+    // 実際の流れと同じく、操作モードで日付を選んで時間表を出してから
+    // 選択モードに切り替える
+    await session.page.click('#calendar-date td[data-date="2026-10-05"]')
+    await session.page.waitForSelector('#calendar-time', { state: 'visible' })
     await startPicker(session.page, (p) => picks.push(p))
   }, 60_000)
 
@@ -198,8 +224,19 @@ describe('ピッカーによる時間枠の認識', () => {
     expect(cell).toBe('tr[data-time]')
     expect(cell).not.toContain('available')
 
+    // 表の id は行ではなく親のテーブルに付いている。
+    // ここを取り違えるとページ最初の表を掴み、表示待ちでタイムアウトする
     const grid = guessGrid(picked)
+    expect(grid).toBe('#calendar-time')
+    expect(grid).not.toBe('table')
+
     const count = await session.page.locator(`${grid} ${cell}`).count()
     expect(count).toBe(19)
+  }, 60_000)
+
+  it('日付セルの表も親のテーブルとして特定できる', async () => {
+    await session.page.click('#calendar-date td[data-date="2026-10-07"]')
+    await session.page.waitForTimeout(200)
+    expect(guessGrid(picks.at(-1)!)).toBe('#calendar-date')
   }, 60_000)
 })

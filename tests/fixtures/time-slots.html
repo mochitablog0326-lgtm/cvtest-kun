@@ -22,8 +22,9 @@
   </tbody></table>
 
   <h2>時間帯</h2>
+  <!-- id だけを持ち class は無い。枠の id は親のテーブル側にある -->
   <!-- 行そのものが1枠。空き状況は class と ○× の両方で表される -->
-  <table id="calendar-time" style="display: table;">
+  <table id="calendar-time" style="display: none;">
                 <tr class="available" data-time="10:00">
                     <th>10:00</th>
                     <td>○</td>
@@ -115,6 +116,8 @@
       cell.addEventListener('click', function () {
         if (cell.getAttribute('aria-disabled') === 'true') return;
         document.getElementById('picked').textContent = cell.getAttribute('data-date');
+        // 日付を選ぶと時間表が現れる
+        document.getElementById('calendar-time').style.display = 'table';
       });
     });
   </script>

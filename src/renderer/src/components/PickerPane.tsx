@@ -446,10 +446,15 @@ export function stepLabelFor(picked: PickedElement): string {
   return trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed
 }
 
-/** カレンダー・時間表の全体を指すセレクタを推測する。ユーザーが編集画面で直せる。 */
+/**
+ * カレンダー・時間表の全体を指すセレクタ。
+ *
+ * id や class は枠（行やセル）ではなく親のコンテナに付いていることが多い。
+ * ページ側で祖先を辿って求めた gridSelector を最優先で使う。
+ * これが無いと `table` に落ちてページ最初の表を掴んでしまう。
+ */
 export function guessGrid(picked: PickedElement): string {
-  const container = picked.attrs['data-grid-id']
-  if (container) return `#${container}`
+  if (picked.gridSelector) return picked.gridSelector
   const classes = picked.classes.filter((c) => /calendar|cal|schedule|month|time|slot/i.test(c))
   if (classes.length > 0) return `.${classes[0]}`
   return 'table'

@@ -173,6 +173,31 @@ export const PICKER_SCRIPT = /* js */ `
     return textOf(el);
   }
 
+  /**
+   * 枠を含む表・リストのセレクタ。
+   *
+   * 枠の id や class は行側ではなく親のコンテナに付いていることが多い
+   * （<table id="calendar-time"> の中の <tr data-time>）。
+   * ページ内でしか祖先を辿れないので、ここで求めて渡す。
+   */
+  function gridSelectorFor(el) {
+    // tbody は入れない。ブラウザが自動で挿入するうえ、
+    // table より近いので #calendar-time > tbody のような冗長な指定になる
+    var container = el.closest(
+      'table, ul, ol,' +
+        '[class*="calendar"], [id*="calendar"],' +
+        '[class*="schedule"], [id*="schedule"],' +
+        '[class*="timetable"], [id*="timetable"],' +
+        '[class*="reserve"], [id*="reserve"]'
+    );
+    if (!container || container === el) return '';
+    try {
+      return buildSelector(container);
+    } catch (e) {
+      return '';
+    }
+  }
+
   function describe(el) {
     const attrs = {};
     for (const a of Array.from(el.attributes)) attrs[a.name] = a.value;
@@ -186,7 +211,8 @@ export const PICKER_SCRIPT = /* js */ `
       text: displayText(el),
       hasChildLink: Boolean(el.querySelector('a, button')),
       looksLikeCalendarCell: looksLikeCalendarCell(el),
-      looksLikeTimeSlot: looksLikeTimeSlot(el)
+      looksLikeTimeSlot: looksLikeTimeSlot(el),
+      gridSelector: gridSelectorFor(el)
     };
   }
 
