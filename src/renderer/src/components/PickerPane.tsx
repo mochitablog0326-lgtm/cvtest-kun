@@ -31,6 +31,10 @@ interface Props {
   repickActive?: boolean
   repickLabel?: string
   onCancelRepick?: () => void
+  /** ステップごと作り直すモード。通常どおりダイアログを出す */
+  replaceActive?: boolean
+  replaceLabel?: string
+  onCancelReplace?: () => void
 }
 
 let stepSeq = 0
@@ -47,7 +51,10 @@ export function PickerPane({
   title = 'ブラウザ',
   repickActive = false,
   repickLabel,
-  onCancelRepick
+  onCancelRepick,
+  replaceActive = false,
+  replaceLabel,
+  onCancelReplace
 }: Props): JSX.Element {
   const [inputUrl, setInputUrl] = useState(url)
   const [opened, setOpened] = useState(false)
@@ -305,6 +312,16 @@ export function PickerPane({
 
       <div className="panel">
         <h2>{title}</h2>
+
+        {replaceActive && (
+          <div className="banner warn">
+            「{replaceLabel || 'ラベルなし'}」を作り直します。
+            対象をクリックしてください。予約枠なら扱い方を聞き直します。
+            <button style={{ marginLeft: 12 }} onClick={onCancelReplace}>
+              やめる
+            </button>
+          </div>
+        )}
 
         {repickActive && (
           <div className="banner warn">

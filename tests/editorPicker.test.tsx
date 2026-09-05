@@ -268,6 +268,72 @@ describe('編集画面のピッカー', () => {
     expect(current.steps[2]).toMatchObject({ selector: '#added' })
   })
 
+  it('作直はステップごと入れ替える（種類も変わる）', async () => {
+    // 予約枠を fill にしてしまっている状態から直せる必要がある
+    await renderWith({
+      ...scenario,
+      steps: [
+        { id: 'a', type: 'fill', label: '時間', selector: 'tr[data-time="17:00"]', value: '○' },
+        { id: 'b', type: 'check', label: '同意', selector: '#agree', checked: true }
+      ]
+    })
+
+    await click(findButton('ピッカーで編集')!)
+    const rebuild = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent?.trim() === '作直'
+    )
+    expect(rebuild).toHaveLength(2)
+    await click(rebuild[0]!)
+    expect(container.textContent).toContain('作り直します')
+
+    // ピッカーが作る新しいステップに丸ごと差し替わる
+    await act(async () => pickerListener!(picked('#new-input')))
+
+    expect(current.steps).toHaveLength(2)
+    expect(current.steps[0]).toMatchObject({
+      // 位置と id は保つ
+      id: 'a',
+      type: 'fill',
+      selector: '#new-input'
+    })
+    // 古い値は引き継がない
+    expect((current.steps[0] as { value?: string }).value).toBe('')
+    expect(current.steps[1]).toMatchObject({ id: 'b', selector: '#agree' })
+  })
+
+  it('取直はセレクタだけ、作直は種類ごと差し替える', async () => {
+    await renderWith({
+      ...scenario,
+      steps: [{ id: 'a', type: 'fill', label: '時間', selector: 'tr[data-time="17:00"]', value: '○' }]
+    })
+    await click(findButton('ピッカーで編集')!)
+
+    // 取直は値と種類を保つ
+    const repick = Array.from(container.querySelectorAll('button')).filter(
+      (b) => b.textContent?.trim() === '取直'
+    )
+    await click(repick[0]!)
+    await act(async () => pickerListener!(picked('#x')))
+    expect(current.steps[0]).toMatchObject({ type: 'fill', selector: '#x', value: '○' })
+  })
+
+  it('種類が噛み合っていないステップに目印を出す', async () => {
+    await renderWith({
+      ...scenario,
+      steps: [{ id: 'a', type: 'fill', label: '時間', selector: 'tr[data-time="17:00"]', value: '○' }]
+    })
+    // 実行するまで気づけないので一覧の時点で示す
+    expect(container.textContent).toContain('種類?')
+  })
+
+  it('通常のステップには目印を出さない', async () => {
+    await renderWith({
+      ...scenario,
+      steps: [{ id: 'a', type: 'fill', label: '会社名', selector: '#company', value: 'x' }]
+    })
+    expect(container.textContent).not.toContain('種類?')
+  })
+
   it('ステップを並べ替えられる', async () => {
     const down = Array.from(container.querySelectorAll('button')).filter(
       (b) => b.textContent?.trim() === '↓'

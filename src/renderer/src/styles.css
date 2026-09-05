@@ -348,7 +348,7 @@ pre.log {
 .steps-table col.c-value { width: 38%; }
 .steps-table col.c-status { width: 84px; }
 .steps-table col.c-actions { width: 80px; }
-.steps-table col.c-ops { width: 150px; }
+.steps-table col.c-ops { width: 196px; }
 
 .steps-table th {
   white-space: nowrap;
@@ -394,5 +394,13 @@ pre.log {
 
 .steps-table .selector.changed {
   color: var(--ok);
+  font-weight: 600;
+}
+
+/* 種類が噛み合っていないステップの目印 */
+.pill.warn-pill {
+  background: var(--warn-weak);
+  border-color: var(--warn);
+  color: var(--warn);
   font-weight: 600;
 }

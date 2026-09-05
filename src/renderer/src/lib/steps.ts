@@ -6,24 +6,57 @@ export function hasSelector(step: Step): boolean {
   return 'selector' in step
 }
 
+export interface PickTarget {
+  /** セレクタだけ差し替える対象 */
+  repickId?: string
+  /** ステップごと置き換える対象 */
+  replaceId?: string
+}
+
 /**
  * ピッカーで選ばれた要素をステップ一覧へ反映する。
  *
- * `repickId` が指定されていれば、そのステップの**セレクタだけ**を差し替える。
- * 種類とラベルは人が付けた情報なので保つ。
- * 指定が無ければ末尾に追加する。
+ * - `repickId`: そのステップの**セレクタだけ**を差し替える。
+ *   種類とラベルは人が付けた情報なので保つ。
+ * - `replaceId`: ステップごと置き換える。位置は保つ。
+ *   種類が違っていた場合（予約枠を fill にしていた等）はこちらで直す。
+ * - どちらも無ければ末尾に追加する。
  */
 export function applyPick(
   steps: Step[],
   step: Step,
   picked: PickedElement,
-  repickId?: string
+  target: PickTarget | string = {}
 ): Step[] {
-  if (!repickId) return [...steps, step]
+  // 以前の呼び出し形（repickId の文字列）も受け付ける
+  const { repickId, replaceId } = typeof target === 'string' ? { repickId: target, replaceId: undefined } : target
 
-  return steps.map((s) =>
-    s.id === repickId && hasSelector(s) ? ({ ...s, selector: picked.selector } as Step) : s
-  )
+  if (replaceId) {
+    return steps.map((s) => (s.id === replaceId ? { ...step, id: s.id } : s))
+  }
+
+  if (repickId) {
+    return steps.map((s) =>
+      s.id === repickId && hasSelector(s) ? ({ ...s, selector: picked.selector } as Step) : s
+    )
+  }
+
+  return [...steps, step]
+}
+
+/**
+ * ステップの種類が対象と噛み合っていなさそうか。
+ *
+ * 予約枠（tr / td や data-time・data-date を持つ要素）を fill や click で
+ * 操作しようとしているのは、ほぼ確実にステップの種類の誤り。
+ * 実行するまで分からないと気づけないので、一覧の時点で目印を出す。
+ */
+export function looksMismatched(step: Step): boolean {
+  if (step.type !== 'fill' && step.type !== 'select') return false
+  if (!('selector' in step)) return false
+
+  const selector = step.selector
+  return /^(tr|td|th|li)[[.:]/.test(selector) || /\[data-(time|date|slot|day)/.test(selector)
 }
 
 /** ステップを1つ上下に動かす。端では何もしない。 */

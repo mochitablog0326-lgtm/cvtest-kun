@@ -1,6 +1,6 @@
 import type { SelectStep } from '../../types/scenario'
 import { locate } from '../browser'
-import { waitForTarget } from './target'
+import { assertSelectable, waitForTarget } from './target'
 import type { StepContext, StepDetail } from './context'
 
 /**
@@ -14,6 +14,7 @@ export async function select(step: SelectStep, ctx: StepContext): Promise<StepDe
   const locator = locate(ctx.page, step.selector, step.frame).first()
 
   await waitForTarget(locator, 'visible', ctx, step, step.selector)
+  await assertSelectable(locator, ctx, step, step.selector)
 
   try {
     await locator.selectOption({ value: wanted }, { timeout: 3_000 })

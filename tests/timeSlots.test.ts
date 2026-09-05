@@ -430,3 +430,83 @@ describe('時間帯が後から読み込まれる場合', () => {
     expect(result.error).toContain('表を指すセレクタが違う可能性があります')
   }, 90_000)
 })
+
+describe('ステップの種類の取り違え', () => {
+  const base = (steps: Scenario['steps']): Scenario => ({
+    version: 1,
+    name: '種類の確認',
+    url: `${server.origin}/time-slots.html`,
+    stepDelayMs: 0,
+    steps,
+    createdAt: '2026-09-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z'
+  })
+
+  it('予約枠を fill しようとしたら、作り直しを案内する', async () => {
+    const result = await run(
+      base([
+        { ...pickDateStep },
+        {
+          id: 's1',
+          type: 'fill',
+          label: '時間',
+          selector: 'tr[data-time="17:00"]',
+          value: '○'
+        }
+      ]),
+      { runsDir, launch: { headless: true }, trace: false, timeoutMs: 5_000 }
+    )
+
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('入力欄ではありません')
+    expect(result.error).toContain('<tr>')
+    expect(result.error).toContain('予約枠のようです')
+    expect(result.error).toContain('空いている枠から自動で選ぶ')
+    // Playwright の英語エラーをそのまま出さない
+    expect(result.error).not.toContain('Element is not an <input>')
+  }, 90_000)
+
+  it('プルダウンでない要素に select しようとしたら伝える', async () => {
+    const result = await run(
+      base([
+        { ...pickDateStep },
+        { id: 's1', type: 'select', label: '時間', selector: 'tr[data-time="17:00"]', value: '○' }
+      ]),
+      { runsDir, launch: { headless: true }, trace: false, timeoutMs: 5_000 }
+    )
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('プルダウンではありません')
+  }, 90_000)
+
+  it('チェックボックスでない要素に check しようとしたら伝える', async () => {
+    const result = await run(
+      base([
+        { ...pickDateStep },
+        { id: 's1', type: 'check', label: '時間', selector: 'tr[data-time="17:00"]', checked: true }
+      ]),
+      { runsDir, launch: { headless: true }, trace: false, timeoutMs: 5_000 }
+    )
+    expect(result.status).toBe('failed')
+    expect(result.error).toContain('チェックボックス・ラジオではありません')
+  }, 90_000)
+
+  it('正しい種類のステップは素通しする', async () => {
+    const result = await run(
+      {
+        version: 1,
+        name: '正常',
+        url: `${server.origin}/contact.html`,
+        stepDelayMs: 0,
+        steps: [
+          { id: 's1', type: 'fill', label: '会社名', selector: '#company', value: '【テスト】社' },
+          { id: 's2', type: 'select', label: '相談内容', selector: '#subject', value: '導入相談' },
+          { id: 's3', type: 'check', label: '同意', selector: 'input[name="agree"]', checked: true }
+        ],
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T00:00:00.000Z'
+      },
+      { runsDir, launch: { headless: true }, trace: false }
+    )
+    expect(result.status).toBe('success')
+  }, 90_000)
+})

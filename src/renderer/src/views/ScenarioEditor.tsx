@@ -11,7 +11,8 @@ import {
   moveStep as moveStepIn,
   removeStep as removeStepIn,
   setStepValue,
-  targetOf
+  targetOf,
+  looksMismatched
 } from '../lib/steps'
 
 interface Props {
@@ -57,6 +58,8 @@ export function ScenarioEditor({
   const [showPicker, setShowPicker] = useState(false)
   /** 取り直し対象のステップID。指定中は追加ではなく差し替えになる */
   const [repickId, setRepickId] = useState<string | undefined>()
+  /** ステップごと作り直す対象。種類が違っていたときに使う */
+  const [replaceId, setReplaceId] = useState<string | undefined>()
   /** 直前に差し替えたステップ。変化が見えるよう知らせる */
   const [repicked, setRepicked] = useState<{ id: string; selector: string } | undefined>()
 
@@ -164,10 +167,14 @@ export function ScenarioEditor({
 
   /** ピッカーで選ばれた要素をステップに反映する。取り直し中は差し替える。 */
   const handlePicked = (step: Step, picked: PickedElement): void => {
-    update({ steps: applyPick(scenario.steps, step, picked, repickId) })
+    update({ steps: applyPick(scenario.steps, step, picked, { repickId, replaceId }) })
     if (repickId) {
       setRepicked({ id: repickId, selector: picked.selector })
       setRepickId(undefined)
+    }
+    if (replaceId) {
+      setRepicked({ id: replaceId, selector: targetOf(step) })
+      setReplaceId(undefined)
     }
   }
 
@@ -275,6 +282,9 @@ export function ScenarioEditor({
           repickActive={Boolean(repickId)}
           repickLabel={scenario.steps.find((s) => s.id === repickId)?.label}
           onCancelRepick={() => setRepickId(undefined)}
+          replaceActive={Boolean(replaceId)}
+          replaceLabel={scenario.steps.find((s) => s.id === replaceId)?.label}
+          onCancelReplace={() => setReplaceId(undefined)}
         />
       )}
 
@@ -404,7 +414,17 @@ export function ScenarioEditor({
                       <span className="pill">{step.type}</span>
                     </td>
                     <td title={`${step.label ?? ''}\n${targetOf(step)}`}>
-                      <div className="ellipsis">{step.label ?? ''}</div>
+                      <div className="ellipsis">
+                        {looksMismatched(step) && (
+                          <span
+                            className="pill warn-pill"
+                            title="予約枠を入力欄として扱っています。「作直」で作り直してください"
+                          >
+                            種類?
+                          </span>
+                        )}{' '}
+                        {step.label ?? ''}
+                      </div>
                       <div
                         className={`ellipsis selector ${
                           repicked?.id === step.id ? 'changed' : ''
@@ -438,9 +458,10 @@ export function ScenarioEditor({
                         </button>
                         {hasSelector(step) && (
                           <button
-                            title="セレクタを取り直す"
+                            title="セレクタだけ取り直す（種類は変わりません）"
                             className={repickId === step.id ? 'primary' : ''}
                             onClick={() => {
+                              setReplaceId(undefined)
                               setRepickId(step.id)
                               setShowPicker(true)
                             }}
@@ -448,6 +469,17 @@ export function ScenarioEditor({
                             取直
                           </button>
                         )}
+                        <button
+                          title="ステップごと作り直す（種類も変わります）"
+                          className={replaceId === step.id ? 'primary' : ''}
+                          onClick={() => {
+                            setRepickId(undefined)
+                            setReplaceId(step.id)
+                            setShowPicker(true)
+                          }}
+                        >
+                          作直
+                        </button>
                         <button title="削除" onClick={() => removeStep(step.id)}>
                           ✕
                         </button>

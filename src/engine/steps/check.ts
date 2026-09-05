@@ -1,6 +1,6 @@
 import type { CheckStep } from '../../types/scenario'
 import { locate } from '../browser'
-import { waitForTarget } from './target'
+import { assertCheckable, waitForTarget } from './target'
 import type { StepContext, StepDetail } from './context'
 
 /**
@@ -13,6 +13,7 @@ import type { StepContext, StepDetail } from './context'
 export async function check(step: CheckStep, ctx: StepContext): Promise<StepDetail> {
   const locator = locate(ctx.page, step.selector, step.frame).first()
   await waitForTarget(locator, 'attached', ctx, step, step.selector)
+  await assertCheckable(locator, ctx, step, step.selector)
 
   const already = await locator.isChecked().catch(() => undefined)
   if (already === step.checked) {
